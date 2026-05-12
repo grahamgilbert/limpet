@@ -179,14 +179,12 @@ jobs:
           set -euo pipefail
           VERSION="${{ steps.version.outputs.version }}"
           DMG="limpet-$VERSION.dmg"
-          # Sparkle's sign_update is shipped as an SPM artifact bundle.
-          SIGN_UPDATE="$(find ~/Library/Developer/Xcode/DerivedData -path '*/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update' -type f | head -n1)"
-          if [ -z "$SIGN_UPDATE" ]; then
-            # Fall back to building / fetching from the checkouts dir
-            SIGN_UPDATE="$(find ~/Library/Developer/Xcode/DerivedData -name sign_update -type f -perm -u+x 2>/dev/null | head -n1)"
-          fi
+          # Sparkle's sign_update ships as an SPM binary artifact. We built
+          # with -derivedDataPath build so SPM artifacts live under build/.
+          SIGN_UPDATE="$(find build ~/Library/Developer/Xcode/DerivedData -name sign_update -type f -perm -u+x 2>/dev/null | head -n1)"
           if [ -z "$SIGN_UPDATE" ]; then
             echo "::error::sign_update binary not found"
+            find build -name 'sign_update*' 2>/dev/null || true
             exit 1
           fi
           echo "Using $SIGN_UPDATE"
