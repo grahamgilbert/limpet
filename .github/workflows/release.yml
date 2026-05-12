@@ -196,9 +196,29 @@ jobs:
             exit 1
           fi
           echo "Using $SIGN_UPDATE"
-          # sign_update accepts the EdDSA private key via -s <key>.
-          SIG_OUT="$("$SIGN_UPDATE" -s "$SPARKLE_PRIVATE_KEY" "$DMG")"
-          echo "sig_output=$SIG_OUT"
+          ls -la limpet-*.dmg 2>&1 || true
+          if [ ! -f "$DMG" ]; then
+            echo "::error::DMG '$DMG' not found in $(pwd)"
+            ls -la
+            exit 1
+          fi
+
+          # Sparkle accepts a private-key file via --ed-key-file. Stash the
+          # secret in a tempfile (-s flag is deprecated and gets logged).
+          KEY_FILE="$(mktemp)"
+          trap 'rm -f "$KEY_FILE"' EXIT
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
+
+          set +e
+          SIG_OUT="$("$SIGN_UPDATE" --ed-key-file "$KEY_FILE" "$DMG" 2>&1)"
+          SIG_RC=$?
+          set -e
+          echo "sign_update rc=$SIG_RC"
+          echo "sign_update output: $SIG_OUT"
+          if [ "$SIG_RC" -ne 0 ]; then
+            echo "::error::sign_update failed"
+            exit "$SIG_RC"
+          fi
           # Format: sparkle:edSignature="..." length="..."
           {
             echo "sig_output<<EOF"
