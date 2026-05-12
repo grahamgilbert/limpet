@@ -1,8 +1,6 @@
 # limpet
 
-A macOS menubar app that keeps GlobalProtect connected and silently dismisses its "you got disconnected" / "connectivity issues" / "session timeout" popups.
-
-A limpet is a small mollusc that clings to a rock so tightly you need a knife to pry it off. That's how this app treats your VPN session.
+Like the mollusc it's named after, limpet sticks your GlobalProtect VPN session to the network and won't let go — silently reconnecting after drops and dismissing the "you got disconnected" / "connectivity issues" / "session timeout" popups.
 
 ## Why
 
