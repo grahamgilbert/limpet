@@ -238,9 +238,16 @@ jobs:
           PUB_DATE="$(LC_ALL=en_US.UTF-8 date -u '+%a, %d %b %Y %H:%M:%S %z' | sed 's/+0000/+0000/')"
           SIG_LINE="${{ steps.sparkle_sign.outputs.sig_output }}"
 
+          # Sparkle compares <sparkle:version> against the running app's
+          # CFBundleVersion. We use the git commit count (set by
+          # scripts/stamp_version.sh during the build) so versions are
+          # monotonically increasing integers.
+          BUILD_NUMBER="$(git rev-list --count HEAD)"
+
           python3 scripts/update_appcast.py \
             --appcast appcast.xml \
             --version "$VERSION" \
+            --build "$BUILD_NUMBER" \
             --url "$DMG_URL" \
             --pub-date "$PUB_DATE" \
             --signature "$SIG_LINE"

@@ -32,7 +32,10 @@ def parse_signature_line(line: str) -> dict[str, str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--appcast", required=True)
-    parser.add_argument("--version", required=True)
+    parser.add_argument("--version", required=True,
+                        help="Marketing version (e.g. 0.1.8) — goes into sparkle:shortVersionString.")
+    parser.add_argument("--build", required=True,
+                        help="Build number (monotonically increasing, e.g. git commit count) — goes into sparkle:version, which is what Sparkle compares against the running app's CFBundleVersion.")
     parser.add_argument("--url", required=True)
     parser.add_argument("--pub-date", required=True)
     parser.add_argument("--signature", required=True,
@@ -53,7 +56,7 @@ def main() -> int:
     item = f"""        <item>
             <title>Version {args.version}</title>
             <pubDate>{args.pub_date}</pubDate>
-            <sparkle:version>{args.version}</sparkle:version>
+            <sparkle:version>{args.build}</sparkle:version>
             <sparkle:shortVersionString>{args.version}</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>{min_system_version}</sparkle:minimumSystemVersion>
             <link>https://github.com/grahamgilbert/limpet/releases/tag/v{args.version}</link>
