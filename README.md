@@ -27,9 +27,13 @@ limpet fixes both.
 
 ## Install
 
-Download the latest `limpet.app` from [Releases](https://github.com/grahamgilbert/limpet/releases) and drag it to `/Applications/`.
+1. Download the latest **`limpet-X.Y.Z.dmg`** from [Releases](https://github.com/grahamgilbert/limpet/releases/latest).
+2. Open the DMG, drag **limpet.app** to **Applications**.
+3. Launch limpet from `/Applications/`.
 
-Or build from source:
+The app is signed with a Developer ID and notarized by Apple, so Gatekeeper opens it without warnings. Once installed, limpet checks for updates daily via Sparkle — toggle it off in Preferences if you'd rather check manually.
+
+### Building from source
 
 ```sh
 git clone https://github.com/grahamgilbert/limpet.git
@@ -37,6 +41,8 @@ cd limpet
 xcodebuild -scheme limpet -configuration Release build
 cp -R ~/Library/Developer/Xcode/DerivedData/limpet-*/Build/Products/Release/limpet.app /Applications/
 ```
+
+Building from source requires a Developer ID Application certificate in your keychain, or you can ad-hoc sign by passing `CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM=` to `xcodebuild`.
 
 ## First launch
 

@@ -1,3 +1,6 @@
+// Copyright 2026 Graham Gilbert. Licensed under the Apache License,
+// Version 2.0. See LICENSE in the repo root for details.
+
 import Foundation
 import OSLog
 import ServiceManagement
@@ -14,12 +17,21 @@ public struct SMAppServiceLoginItem: LoginItemRegistering {
     public init() {}
 
     public var isRegistered: Bool {
-        let status = SMAppService.mainApp.status
-        Self.log.debug("SMAppService.mainApp.status = \(status.rawValue) (\(Self.describe(status)))")
         switch status {
-        case .enabled, .requiresApproval: return true
-        case .notRegistered, .notFound: return false
-        @unknown default: return false
+        case .enabled, .requiresApproval: true
+        case .notRegistered, .notFound, .unknown: false
+        }
+    }
+
+    public var status: LoginItemStatus {
+        let raw = SMAppService.mainApp.status
+        Self.log.debug("SMAppService.mainApp.status = \(raw.rawValue) (\(Self.describe(raw)))")
+        switch raw {
+        case .enabled: return .enabled
+        case .requiresApproval: return .requiresApproval
+        case .notRegistered: return .notRegistered
+        case .notFound: return .notFound
+        @unknown default: return .unknown
         }
     }
 

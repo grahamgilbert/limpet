@@ -40,6 +40,8 @@ def main() -> int:
     parser.add_argument("--pub-date", required=True)
     parser.add_argument("--signature", required=True,
                         help='sign_update output, e.g. sparkle:edSignature="..." length="..."')
+    parser.add_argument("--release-notes-url", required=False, default="",
+                        help="Optional URL to release notes (Sparkle dialog will fetch and display it).")
     args = parser.parse_args()
 
     sig_attrs = parse_signature_line(args.signature)
@@ -53,6 +55,10 @@ def main() -> int:
 
     min_system_version = "26.0"
 
+    notes_link = ""
+    if args.release_notes_url:
+        notes_link = f"            <sparkle:releaseNotesLink>{args.release_notes_url}</sparkle:releaseNotesLink>\n"
+
     item = f"""        <item>
             <title>Version {args.version}</title>
             <pubDate>{args.pub_date}</pubDate>
@@ -60,7 +66,7 @@ def main() -> int:
             <sparkle:shortVersionString>{args.version}</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>{min_system_version}</sparkle:minimumSystemVersion>
             <link>https://github.com/grahamgilbert/limpet/releases/tag/v{args.version}</link>
-            <enclosure url="{args.url}" sparkle:edSignature="{edsig}" length="{length}" type="application/octet-stream"/>
+{notes_link}            <enclosure url="{args.url}" sparkle:edSignature="{edsig}" length="{length}" type="application/octet-stream"/>
         </item>
 """
 

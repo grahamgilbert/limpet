@@ -8,3 +8,5 @@ build/
 .swiftpm/
 Package.resolved
 .claude/
+__pycache__/
+*.pyc

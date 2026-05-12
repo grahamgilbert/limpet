@@ -246,13 +246,19 @@ jobs:
           # monotonically increasing integers.
           BUILD_NUMBER="$(git rev-list --count HEAD)"
 
+          # Sparkle's update dialog fetches the release-notes URL and renders
+          # it as HTML. GitHub serves a release page at this URL; Sparkle's
+          # WebKit view handles it fine.
+          NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/v$VERSION"
+
           python3 scripts/update_appcast.py \
             --appcast appcast.xml \
             --version "$VERSION" \
             --build "$BUILD_NUMBER" \
             --url "$DMG_URL" \
             --pub-date "$PUB_DATE" \
-            --signature "$SIG_LINE"
+            --signature "$SIG_LINE" \
+            --release-notes-url "$NOTES_URL"
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

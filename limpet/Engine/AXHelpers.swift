@@ -1,3 +1,6 @@
+// Copyright 2026 Graham Gilbert. Licensed under the Apache License,
+// Version 2.0. See LICENSE in the repo root for details.
+
 import ApplicationServices
 import Foundation
 
@@ -67,6 +70,15 @@ import AppKit
 @MainActor
 public func openAccessibilitySettings() {
     if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+        NSWorkspace.shared.open(url)
+    }
+}
+
+/// Opens System Settings → General → Login Items & Extensions.
+@MainActor
+public func openLoginItemsSettings() {
+    // The dedicated Login Items pane URL on macOS 13+.
+    if let url = URL(string: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension") {
         NSWorkspace.shared.open(url)
     }
 }

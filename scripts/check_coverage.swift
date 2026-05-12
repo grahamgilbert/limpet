@@ -43,6 +43,7 @@ let excludedSubstrings: [String] = [
     "GlobalProtectWindowProvider.swift",    // AX-driven WindowProvider
     "SMAppServiceLoginItem.swift",          // SMAppService wrapper
     "InstallLocation.swift",                // NSAlert + NSWorkspace UI flow
+    "GlobalProtectInstallation.swift",      // NSAlert UI flow
     "Updater.swift",                        // SPUStandardUpdaterController wrapper
 ]
 

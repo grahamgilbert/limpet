@@ -1,3 +1,6 @@
+// Copyright 2026 Graham Gilbert. Licensed under the Apache License,
+// Version 2.0. See LICENSE in the repo root for details.
+
 import SwiftUI
 import ServiceManagement
 
@@ -9,6 +12,26 @@ struct PreferencesWindow: View {
         Form {
             Section("General") {
                 Toggle("Start at Login", isOn: $preferences.startAtLogin)
+
+                if preferences.loginItemStatus == .requiresApproval {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Approval needed")
+                                .font(.caption.bold())
+                            Text("limpet is registered but won't launch at login until you approve it in System Settings.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Button("Open Login Items Settings") {
+                                openLoginItemsSettings()
+                            }
+                            .controlSize(.small)
+                        }
+                    }
+                }
+
                 if let err = preferences.lastLoginItemError {
                     Text(err)
                         .font(.caption)

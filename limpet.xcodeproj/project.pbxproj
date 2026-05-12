@@ -21,6 +21,7 @@
 		A101000A000000000000A001 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000A000000000000B001 /* Preferences.swift */; };
 		A101000B000000000000A001 /* SMAppServiceLoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000B000000000000B001 /* SMAppServiceLoginItem.swift */; };
 		A101001C000000000000A001 /* InstallLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101001C000000000000B001 /* InstallLocation.swift */; };
+		A101001D000000000000A001 /* GlobalProtectInstallation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101001D000000000000B001 /* GlobalProtectInstallation.swift */; };
 		A101000C000000000000A001 /* StatusIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000C000000000000B001 /* StatusIcon.swift */; };
 		A101000D000000000000A001 /* MenuBarContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000D000000000000B001 /* MenuBarContent.swift */; };
 		A101001B000000000000A001 /* PermissionWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101001B000000000000B001 /* PermissionWindow.swift */; };
@@ -73,6 +74,7 @@
 		A101000A000000000000B001 /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
 		A101000B000000000000B001 /* SMAppServiceLoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMAppServiceLoginItem.swift; sourceTree = "<group>"; };
 		A101001C000000000000B001 /* InstallLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallLocation.swift; sourceTree = "<group>"; };
+		A101001D000000000000B001 /* GlobalProtectInstallation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalProtectInstallation.swift; sourceTree = "<group>"; };
 		A101000C000000000000B001 /* StatusIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusIcon.swift; sourceTree = "<group>"; };
 		A101000D000000000000B001 /* MenuBarContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContent.swift; sourceTree = "<group>"; };
 		A101001B000000000000B001 /* PermissionWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionWindow.swift; sourceTree = "<group>"; };
@@ -194,6 +196,7 @@
 				A101000A000000000000B001 /* Preferences.swift */,
 				A101000B000000000000B001 /* SMAppServiceLoginItem.swift */,
 				A101001C000000000000B001 /* InstallLocation.swift */,
+				A101001D000000000000B001 /* GlobalProtectInstallation.swift */,
 			);
 			path = State;
 			sourceTree = "<group>";
@@ -394,6 +397,7 @@
 				A101000A000000000000A001 /* Preferences.swift in Sources */,
 				A101000B000000000000A001 /* SMAppServiceLoginItem.swift in Sources */,
 				A101001C000000000000A001 /* InstallLocation.swift in Sources */,
+				A101001D000000000000A001 /* GlobalProtectInstallation.swift in Sources */,
 				A101000C000000000000A001 /* StatusIcon.swift in Sources */,
 				A101000D000000000000A001 /* MenuBarContent.swift in Sources */,
 				A101001B000000000000A001 /* PermissionWindow.swift in Sources */,

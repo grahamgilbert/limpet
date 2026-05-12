@@ -1,3 +1,6 @@
+// Copyright 2026 Graham Gilbert. Licensed under the Apache License,
+// Version 2.0. See LICENSE in the repo root for details.
+
 import SwiftUI
 import ApplicationServices
 
@@ -89,6 +92,11 @@ struct limpetApp: App {
 final class LimpetAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+
+        // Hard gate: limpet is meaningless without GlobalProtect installed.
+        if GlobalProtectInstallation.warnIfMissing() {
+            return
+        }
 
         InstallLocation.promptIfNeeded()
 

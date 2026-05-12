@@ -1,3 +1,6 @@
+// Copyright 2026 Graham Gilbert. Licensed under the Apache License,
+// Version 2.0. See LICENSE in the repo root for details.
+
 import Foundation
 import Observation
 import ServiceManagement
@@ -37,6 +40,9 @@ public final class Preferences {
         }
     }
 
+    /// Mirrors `loginItem.status` so SwiftUI can show a "needs approval" hint.
+    public var loginItemStatus: LoginItemStatus
+
     public var lastLoginItemError: String?
 
     private var suppressLoginItemSync = false
@@ -60,6 +66,7 @@ public final class Preferences {
             try? loginItem.register()
         }
         self.startAtLogin = loginItem.isRegistered
+        self.loginItemStatus = loginItem.status
         if firstLaunch {
             defaults.set(true, forKey: Self.hasLaunchedBeforeKey)
         }
@@ -90,6 +97,7 @@ public final class Preferences {
         // even if it differs from what we asked for. Suppress didSet while
         // we sync so we don't loop back through SMAppService.
         let actual = loginItem.isRegistered
+        loginItemStatus = loginItem.status
         if actual != wanted {
             suppressLoginItemSync = true
             self.startAtLogin = actual
@@ -101,6 +109,10 @@ public final class Preferences {
     /// observable property if it has drifted (e.g. user toggled it in
     /// System Settings). Call when the menu reopens.
     public func refreshLoginItemState() {
+        let newStatus = loginItem.status
+        if newStatus != loginItemStatus {
+            loginItemStatus = newStatus
+        }
         let actual = loginItem.isRegistered
         guard actual != startAtLogin else { return }
         suppressLoginItemSync = true
