@@ -42,5 +42,15 @@
             <sparkle:releaseNotesLink>https://github.com/grahamgilbert/limpet/releases/tag/v0.2.1</sparkle:releaseNotesLink>
             <enclosure url="https://github.com/grahamgilbert/limpet/releases/download/v0.2.1/limpet-0.2.1.dmg" sparkle:edSignature="l/+5bsUUZjyHBxEE70+88eEFVY+TnludpYVytkHeh1h3uBPoZqBGQxbCXDu4jK4fu5V0pE0bnAsXmO7ZhVCLCA==" length="2004386" type="application/octet-stream"/>
         </item>
+            <item>
+            <title>Version 0.2.2</title>
+            <pubDate>Tue, 12 May 2026 22:09:11 +0000</pubDate>
+            <sparkle:version>30</sparkle:version>
+            <sparkle:shortVersionString>0.2.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <link>https://github.com/grahamgilbert/limpet/releases/tag/v0.2.2</link>
+            <sparkle:releaseNotesLink>https://github.com/grahamgilbert/limpet/releases/tag/v0.2.2</sparkle:releaseNotesLink>
+            <enclosure url="https://github.com/grahamgilbert/limpet/releases/download/v0.2.2/limpet-0.2.2.dmg" sparkle:edSignature="+N9CYn1VVyUonwYHy8qndO+cjNXV7jZU8Xje8WS6ttOHp0BXMO+YXVQ/u3qa+01mIoFNEYETvvPDTfjbdKCaAw==" length="2006921" type="application/octet-stream"/>
+        </item>
     </channel>
 </rss>
