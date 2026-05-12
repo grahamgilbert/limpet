@@ -68,25 +68,25 @@ struct MenuBarContent: View {
 
             Divider()
 
-            HStack(spacing: 8) {
-                Toggle("VPN On", isOn: Binding(
-                    get: { displayedToggle },
-                    set: { newValue in
-                        preferences.desiredOn = newValue
-                        triggerToggle(to: newValue)
-                    }
-                ))
-                .toggleStyle(.switch)
-
-                if pendingDesiredOn != nil {
-                    ProgressView()
-                        .controlSize(.small)
-                        .scaleEffect(0.7)
+            VPNToggleRow(
+                displayedOn: displayedToggle,
+                isPending: pendingDesiredOn != nil,
+                onChangeRequested: { newValue in
+                    preferences.desiredOn = newValue
+                    triggerToggle(to: newValue)
+                }
+            )
+            .onChange(of: connectionIsOn) { _, newValue in
+                if let pending = pendingDesiredOn, pending == newValue {
+                    pendingDesiredOn = nil
+                    pendingTask?.cancel()
+                    pendingTask = nil
                 }
             }
-            .onChange(of: connectionIsOn) { _, newValue in
-                // Reality caught up with intent — drop the optimistic state.
-                if let pending = pendingDesiredOn, pending == newValue {
+            .onAppear {
+                // If the menu reopens after reality caught up while it was
+                // closed, sync the optimistic state.
+                if let pending = pendingDesiredOn, pending == connectionIsOn {
                     pendingDesiredOn = nil
                     pendingTask?.cancel()
                     pendingTask = nil
@@ -125,7 +125,35 @@ struct MenuBarContent: View {
         .frame(width: 240)
     }
 
-    private func triggerToggle(to newValue: Bool) {
+}
+
+/// Toggle row extracted into its own view so SwiftUI tracks its inputs
+/// (`displayedOn`, `isPending`) as plain value-type props and re-renders
+/// reliably when either changes.
+private struct VPNToggleRow: View {
+    let displayedOn: Bool
+    let isPending: Bool
+    let onChangeRequested: (Bool) -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Toggle("VPN On", isOn: Binding(
+                get: { displayedOn },
+                set: { onChangeRequested($0) }
+            ))
+            .toggleStyle(.switch)
+
+            if isPending {
+                ProgressView()
+                    .controlSize(.small)
+                    .scaleEffect(0.7)
+            }
+        }
+    }
+}
+
+extension MenuBarContent {
+    fileprivate func triggerToggle(to newValue: Bool) {
         appState.lastError = nil
         pendingTask?.cancel()
         pendingDesiredOn = newValue
