@@ -31,4 +31,8 @@ jobs:
             -configuration Release \
             -destination 'platform=macOS' \
             CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM= \
             build

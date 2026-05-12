@@ -35,12 +35,20 @@ jobs:
       - name: Build & Test
         run: |
           set -euo pipefail
+          # CI doesn't have access to the Developer ID certificate. Override
+          # the project's signing settings to ad-hoc for tests; the release
+          # workflow handles real signing.
           xcodebuild \
             -project limpet.xcodeproj \
             -scheme limpet \
             -destination 'platform=macOS' \
             -enableCodeCoverage YES \
             -resultBundlePath build/Test.xcresult \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM= \
             test
 
       - name: Extract coverage
