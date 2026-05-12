@@ -13,7 +13,7 @@ struct PreferencesWindow: View {
             Section("General") {
                 Toggle("Start at Login", isOn: $preferences.startAtLogin)
 
-                if preferences.loginItemStatus == .requiresApproval {
+                if preferences.loginItemNeedsAttention {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(.orange)

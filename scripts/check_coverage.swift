@@ -42,7 +42,6 @@ let excludedSubstrings: [String] = [
     "VpnController.swift",                  // AccessibilityVpnController
     "GlobalProtectWindowProvider.swift",    // AX-driven WindowProvider
     "SMAppServiceLoginItem.swift",          // SMAppService wrapper
-    "InstallLocation.swift",                // NSAlert + NSWorkspace UI flow
     "GlobalProtectInstallation.swift",      // NSAlert UI flow
     "LoginItemNotifier.swift",              // UNUserNotificationCenter wrapper
     "Updater.swift",                        // SPUStandardUpdaterController wrapper

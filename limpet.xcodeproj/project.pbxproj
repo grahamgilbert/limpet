@@ -20,7 +20,6 @@
 		A1010009000000000000A001 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010009000000000000B001 /* AppState.swift */; };
 		A101000A000000000000A001 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000A000000000000B001 /* Preferences.swift */; };
 		A101000B000000000000A001 /* SMAppServiceLoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000B000000000000B001 /* SMAppServiceLoginItem.swift */; };
-		A101001C000000000000A001 /* InstallLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101001C000000000000B001 /* InstallLocation.swift */; };
 		A101001D000000000000A001 /* GlobalProtectInstallation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101001D000000000000B001 /* GlobalProtectInstallation.swift */; };
 		A101001E000000000000A001 /* LoginItemNotifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101001E000000000000B001 /* LoginItemNotifier.swift */; };
 		A101000C000000000000A001 /* StatusIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000C000000000000B001 /* StatusIcon.swift */; };
@@ -75,7 +74,6 @@
 		A1010009000000000000B001 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		A101000A000000000000B001 /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
 		A101000B000000000000B001 /* SMAppServiceLoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMAppServiceLoginItem.swift; sourceTree = "<group>"; };
-		A101001C000000000000B001 /* InstallLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallLocation.swift; sourceTree = "<group>"; };
 		A101001D000000000000B001 /* GlobalProtectInstallation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalProtectInstallation.swift; sourceTree = "<group>"; };
 		A101001E000000000000B001 /* LoginItemNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItemNotifier.swift; sourceTree = "<group>"; };
 		A101000C000000000000B001 /* StatusIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusIcon.swift; sourceTree = "<group>"; };
@@ -199,7 +197,6 @@
 				A1010009000000000000B001 /* AppState.swift */,
 				A101000A000000000000B001 /* Preferences.swift */,
 				A101000B000000000000B001 /* SMAppServiceLoginItem.swift */,
-				A101001C000000000000B001 /* InstallLocation.swift */,
 				A101001D000000000000B001 /* GlobalProtectInstallation.swift */,
 				A101001E000000000000B001 /* LoginItemNotifier.swift */,
 			);
@@ -402,7 +399,6 @@
 				A1010009000000000000A001 /* AppState.swift in Sources */,
 				A101000A000000000000A001 /* Preferences.swift in Sources */,
 				A101000B000000000000A001 /* SMAppServiceLoginItem.swift in Sources */,
-				A101001C000000000000A001 /* InstallLocation.swift in Sources */,
 				A101001D000000000000A001 /* GlobalProtectInstallation.swift in Sources */,
 				A101001E000000000000A001 /* LoginItemNotifier.swift in Sources */,
 				A101000C000000000000A001 /* StatusIcon.swift in Sources */,

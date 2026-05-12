@@ -43,6 +43,17 @@ public final class Preferences {
     /// Mirrors `loginItem.status` so SwiftUI can show a "needs approval" hint.
     public var loginItemStatus: LoginItemStatus
 
+    /// `true` when the user wants Start at Login on but the system has
+    /// dropped, blocked, or never accepted limpet. UI uses this to show a
+    /// warning regardless of which specific failure state we're in.
+    public var loginItemNeedsAttention: Bool {
+        guard startAtLogin else { return false }
+        switch loginItemStatus {
+        case .enabled: return false
+        case .requiresApproval, .notFound, .notRegistered, .unknown: return true
+        }
+    }
+
     public var lastLoginItemError: String?
 
     private var suppressLoginItemSync = false
@@ -118,7 +129,17 @@ public final class Preferences {
         if newStatus != loginItemStatus {
             let oldStatus = loginItemStatus
             loginItemStatus = newStatus
-            if newStatus == .requiresApproval && oldStatus != .requiresApproval {
+
+            // Notify when limpet *was* registered (or the user wants it
+            // registered) but the system has dropped it. macOS sometimes
+            // hands back .requiresApproval, sometimes .notFound, sometimes
+            // .notRegistered — they all mean "limpet won't launch at login
+            // and the user should know".
+            let userWantsLogin = startAtLogin || oldStatus == .enabled
+            let nowBroken = newStatus == .requiresApproval
+                || (newStatus == .notFound && oldStatus == .enabled)
+                || (newStatus == .notRegistered && oldStatus == .enabled)
+            if userWantsLogin && nowBroken {
                 notifier.notifyRequiresApproval()
             }
         }

@@ -98,8 +98,6 @@ final class LimpetAppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        InstallLocation.promptIfNeeded()
-
         if AX.isProcessTrusted(prompt: false) {
             for window in NSApp.windows where window.identifier?.rawValue == "permission" {
                 window.close()

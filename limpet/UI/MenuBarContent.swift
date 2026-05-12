@@ -69,6 +69,25 @@ struct MenuBarContent: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            if preferences.loginItemNeedsAttention {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text("Login Items approval needed")
+                            .font(.caption.bold())
+                    }
+                    Text("Approve limpet in System Settings so it launches at login.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button("Open Login Items Settings") {
+                        openLoginItemsSettings()
+                    }
+                    .controlSize(.small)
+                }
+            }
+
             Divider()
 
             VPNToggleRow(
