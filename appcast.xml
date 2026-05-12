@@ -17,7 +17,7 @@
             <item>
             <title>Version 0.1.9</title>
             <pubDate>Tue, 12 May 2026 21:24:33 +0000</pubDate>
-            <sparkle:version>1</sparkle:version>
+            <sparkle:version>23</sparkle:version>
             <sparkle:shortVersionString>0.1.9</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <link>https://github.com/grahamgilbert/limpet/releases/tag/v0.1.9</link>
