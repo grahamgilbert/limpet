@@ -5,5 +5,14 @@
         <description>limpet release feed</description>
         <link>https://github.com/grahamgilbert/limpet</link>
         <language>en</language>
+            <item>
+            <title>Version 0.1.8</title>
+            <pubDate>Tue, 12 May 2026 21:15:00 +0000</pubDate>
+            <sparkle:version>0.1.8</sparkle:version>
+            <sparkle:shortVersionString>0.1.8</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <link>https://github.com/grahamgilbert/limpet/releases/tag/v0.1.8</link>
+            <enclosure url="https://github.com/grahamgilbert/limpet/releases/download/v0.1.8/limpet-0.1.8.dmg" sparkle:edSignature="tny3bGg2uz5/MYT/bCd/rS3YwY7bsms/Hsn13DZJ5SvqXkxJvGu7NfV53MerpRo26309/Nw1T04yAF5W4m+LBg==" length="1985170" type="application/octet-stream"/>
+        </item>
     </channel>
 </rss>
