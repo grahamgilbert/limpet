@@ -27,8 +27,14 @@ public final class Updater {
             updaterDelegate: nil,
             userDriverDelegate: nil
         )
+        // Default automatic update checks to on for first-time users. Sparkle
+        // persists user choices in NSUserDefaults under SUEnableAutomaticChecks,
+        // so subsequent runs respect what they've toggled.
+        if UserDefaults.standard.object(forKey: "SUEnableAutomaticChecks") == nil {
+            controller.updater.automaticallyChecksForUpdates = true
+        }
         self.automaticallyChecksForUpdates = controller.updater.automaticallyChecksForUpdates
-        // Daily check cadence (86400 s) per the user's spec.
+        // Daily check cadence.
         self.controller.updater.updateCheckInterval = 86_400
     }
 

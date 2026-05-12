@@ -12,10 +12,19 @@ def parse_signature_line(line: str) -> dict[str, str]:
 
         sparkle:edSignature="..." length="123456"
 
-    Parse it into a dict.
+    Bash unquoting in CI can collapse this to:
+
+        sparkle:edSignature=... length=...
+
+    Accept either. Values with `=`, `+`, `/` (base64) are tolerated.
     """
     attrs: dict[str, str] = {}
-    for match in re.finditer(r'(\w+(?::\w+)?)="([^"]*)"', line):
+    quoted = re.findall(r'(\w+(?::\w+)?)="([^"]*)"', line)
+    if quoted:
+        for k, v in quoted:
+            attrs[k] = v
+        return attrs
+    for match in re.finditer(r'(\w+(?::\w+)?)=(\S+?)(?=\s+\w+(?::\w+)?=|\s*$)', line):
         attrs[match.group(1)] = match.group(2)
     return attrs
 

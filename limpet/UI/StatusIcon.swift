@@ -37,30 +37,35 @@ struct MenuBarLabel: View {
 }
 
 private func renderMenuBarImage(state: ConnectionState) -> NSImage {
+    // Render the SF Symbol at its natural size to avoid the menubar squashing
+    // a non-square canvas. We draw both the symbol and the dot inside that
+    // square; the dot lives in the top-right of the symbol bounds.
     let pointSize: CGFloat = 18
-    let canvas = NSSize(width: pointSize + 4, height: pointSize)
-    let image = NSImage(size: canvas, flipped: false) { _ in
-        // The drawing handler runs with the destination's NSAppearance set,
-        // so NSColor.labelColor here resolves to white on a dark menubar
-        // and black on a light menubar. That's exactly what we need.
-        let symbolConfig = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
-        if let symbol = NSImage(systemSymbolName: state.menuBarSystemImage, accessibilityDescription: nil)?
-            .withSymbolConfiguration(symbolConfig),
-           let tinted = symbol.copy() as? NSImage {
+    let symbolConfig = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
+    guard let baseSymbol = NSImage(systemSymbolName: state.menuBarSystemImage, accessibilityDescription: nil)?
+        .withSymbolConfiguration(symbolConfig) else {
+        return NSImage()
+    }
+    let symbolSize = baseSymbol.size
+
+    let image = NSImage(size: symbolSize, flipped: false) { _ in
+        // labelColor adapts to the menubar's appearance at draw time.
+        if let tinted = baseSymbol.copy() as? NSImage {
             tinted.lockFocus()
             NSColor.labelColor.set()
-            let r = NSRect(origin: .zero, size: tinted.size)
-            r.fill(using: .sourceAtop)
+            NSRect(origin: .zero, size: tinted.size).fill(using: .sourceAtop)
             tinted.unlockFocus()
-            let symbolRect = NSRect(x: 0, y: 0, width: pointSize, height: pointSize)
-            tinted.draw(in: symbolRect, from: .zero, operation: .sourceOver, fraction: 1.0)
+            tinted.draw(in: NSRect(origin: .zero, size: symbolSize),
+                        from: .zero,
+                        operation: .sourceOver,
+                        fraction: 1.0)
         }
 
         if state.showsMenuBarBadge {
             let dotSize: CGFloat = 6
             let dotRect = NSRect(
-                x: canvas.width - dotSize - 0.5,
-                y: canvas.height - dotSize - 0.5,
+                x: symbolSize.width - dotSize,
+                y: symbolSize.height - dotSize,
                 width: dotSize,
                 height: dotSize
             )
@@ -69,7 +74,6 @@ private func renderMenuBarImage(state: ConnectionState) -> NSImage {
         }
         return true
     }
-    // Non-template so colour survives.
     image.isTemplate = false
     return image
 }

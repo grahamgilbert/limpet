@@ -41,13 +41,14 @@ jobs:
       - name: Build Release
         run: |
           set -euo pipefail
+          # Version is read from VERSION by scripts/stamp_version.sh, run as a
+          # build phase, so we don't need to override MARKETING_VERSION here.
           xcodebuild \
             -project limpet.xcodeproj \
             -scheme limpet \
             -configuration Release \
             -destination 'platform=macOS' \
             -derivedDataPath build \
-            MARKETING_VERSION=${{ steps.version.outputs.version }} \
             build
 
       - name: Locate built app
