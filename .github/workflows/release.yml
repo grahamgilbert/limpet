@@ -176,18 +176,31 @@ jobs:
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
-          set -euo pipefail
+          set -uo pipefail   # NOTE: no -e here — we want to debug failures
           VERSION="${{ steps.version.outputs.version }}"
           DMG="limpet-$VERSION.dmg"
-          # Sparkle's sign_update ships as an SPM binary artifact. We built
-          # with -derivedDataPath build so SPM artifacts live under build/.
-          SIGN_UPDATE="$(find build ~/Library/Developer/Xcode/DerivedData -name sign_update -type f -perm -u+x 2>/dev/null | head -n1)"
-          if [ -z "$SIGN_UPDATE" ]; then
+
+          # Sparkle's sign_update ships as an SPM binary artifact. The
+          # location depends on derivedDataPath; search both common spots.
+          echo "Searching for sign_update..."
+          mapfile -t CANDIDATES < <(find build ~/Library/Developer/Xcode/DerivedData /Users/runner -name sign_update -type f 2>/dev/null)
+          printf '  candidate: %s\n' "${CANDIDATES[@]:-(none)}"
+          SIGN_UPDATE=""
+          for c in "${CANDIDATES[@]:-}"; do
+            if [ -x "$c" ] && [[ "$c" != *"old_dsa"* ]]; then
+              SIGN_UPDATE="$c"
+              break
+            fi
+          done
+          if [ -z "${SIGN_UPDATE:-}" ]; then
             echo "::error::sign_update binary not found"
-            find build -name 'sign_update*' 2>/dev/null || true
+            echo "Showing build/ tree:"
+            find build -maxdepth 6 -name 'Sparkle' -o -name 'sign_update*' 2>/dev/null || true
             exit 1
           fi
           echo "Using $SIGN_UPDATE"
+
+          set -e
           # sign_update accepts the EdDSA private key via -s <key>.
           SIG_OUT="$("$SIGN_UPDATE" -s "$SPARKLE_PRIVATE_KEY" "$DMG")"
           echo "sig_output=$SIG_OUT"
