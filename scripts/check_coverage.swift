@@ -42,6 +42,7 @@ let excludedSubstrings: [String] = [
     "VpnController.swift",                  // AccessibilityVpnController
     "GlobalProtectWindowProvider.swift",    // AX-driven WindowProvider
     "SMAppServiceLoginItem.swift",          // SMAppService wrapper
+    "InstallLocation.swift",                // NSAlert + NSWorkspace UI flow
 ]
 
 struct PrefixStats { var executable = 0; var covered = 0 }
