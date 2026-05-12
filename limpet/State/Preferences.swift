@@ -15,9 +15,16 @@ public final class Preferences {
     private let defaults: UserDefaults
     private let loginItem: LoginItemRegistering
     fileprivate nonisolated static let desiredOnKey = "limpet.desiredOn"
+    fileprivate nonisolated static let hasLaunchedBeforeKey = "limpet.hasLaunchedBefore"
 
     public var desiredOn: Bool {
         didSet { defaults.set(desiredOn, forKey: Self.desiredOnKey) }
+    }
+
+    /// `true` once limpet has successfully launched at least once.
+    public var hasLaunchedBefore: Bool {
+        get { defaults.bool(forKey: Self.hasLaunchedBeforeKey) }
+        set { defaults.set(newValue, forKey: Self.hasLaunchedBeforeKey) }
     }
 
     /// Stored, observable mirror of the system's login-item state. The setter
@@ -44,7 +51,18 @@ public final class Preferences {
             defaults.set(true, forKey: Self.desiredOnKey)
         }
         self.desiredOn = defaults.bool(forKey: Self.desiredOnKey)
+
+        // First-launch defaults: opt the user into Start at Login on the very
+        // first run so the VPN watchdog actually keeps the VPN up across
+        // reboots without them having to opt in. We only do this once.
+        let firstLaunch = !defaults.bool(forKey: Self.hasLaunchedBeforeKey)
+        if firstLaunch && !loginItem.isRegistered {
+            try? loginItem.register()
+        }
         self.startAtLogin = loginItem.isRegistered
+        if firstLaunch {
+            defaults.set(true, forKey: Self.hasLaunchedBeforeKey)
+        }
 
         // Periodic resync so the toggle reflects the OS even if the user
         // changed it externally (System Settings → General → Login Items).

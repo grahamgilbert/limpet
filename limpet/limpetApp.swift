@@ -51,7 +51,7 @@ struct limpetApp: App {
                 controller: controller
             )
         } label: {
-            Image(systemName: appState.connection.menuBarSystemImage)
+            MenuBarLabel(state: appState.connection)
         }
         .menuBarExtraStyle(.window)
 

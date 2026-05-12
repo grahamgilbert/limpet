@@ -63,6 +63,13 @@ jobs:
           echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
           codesign -dv "$APP_PATH"
 
+      - name: Show signing details
+        run: |
+          set -euo pipefail
+          APP="${{ steps.app.outputs.app_path }}"
+          codesign -dvvv --entitlements - "$APP" || true
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
       - name: Notarize
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -73,11 +80,25 @@ jobs:
           APP="${{ steps.app.outputs.app_path }}"
           ZIP="build/limpet-notarize.zip"
           /usr/bin/ditto -c -k --keepParent "$APP" "$ZIP"
-          xcrun notarytool submit "$ZIP" \
+          # Capture submission ID and exit status; if Invalid, dump the log.
+          SUBMIT_OUT="$(xcrun notarytool submit "$ZIP" \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_ID_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
-            --wait
+            --wait \
+            --output-format json)"
+          echo "$SUBMIT_OUT"
+          STATUS="$(echo "$SUBMIT_OUT" | python3 -c 'import json, sys; print(json.load(sys.stdin)["status"])')"
+          ID="$(echo "$SUBMIT_OUT" | python3 -c 'import json, sys; print(json.load(sys.stdin)["id"])')"
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "::error::notarization status=$STATUS"
+            echo "Fetching detailed log for $ID:"
+            xcrun notarytool log "$ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_ID_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" || true
+            exit 1
+          fi
           xcrun stapler staple "$APP"
           xcrun stapler validate "$APP"
 
