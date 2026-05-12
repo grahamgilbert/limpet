@@ -4,6 +4,7 @@ import ApplicationServices
 @main
 struct limpetApp: App {
     @NSApplicationDelegateAdaptor(LimpetAppDelegate.self) private var delegate
+    @Environment(\.openWindow) private var openWindow
     @State private var appState: AppState
     @State private var preferences: Preferences
     @State private var trust: AccessibilityTrustWatcher
@@ -80,12 +81,8 @@ struct limpetApp: App {
 
     @MainActor
     private func showPreferencesWindow() {
+        openWindow(id: "preferences")
         NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.identifier?.rawValue == "preferences" }) {
-            window.makeKeyAndOrderFront(nil)
-        } else if let url = URL(string: "limpet://preferences") {
-            NSWorkspace.shared.open(url)
-        }
     }
 }
 
