@@ -68,4 +68,4 @@ The menubar icon and the **Connected / Disconnected / Connecting** label always 
 
 ## License
 
-MIT.
+[Apache 2.0](LICENSE).
