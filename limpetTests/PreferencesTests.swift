@@ -6,8 +6,7 @@ import Testing
 struct PreferencesTests {
     @Test @MainActor
     func defaultsTrueOnFirstLaunch() throws {
-        let defaults = freshDefaults()
-        let prefs = Preferences(defaults: defaults, loginItem: FakeLoginItem())
+        let prefs = Preferences(defaults: freshDefaults(), loginItem: FakeLoginItem())
         #expect(prefs.desiredOn == true)
     }
 
@@ -22,9 +21,35 @@ struct PreferencesTests {
     }
 
     @Test @MainActor
-    func startAtLoginRegistersAndUnregisters() {
+    func firstLaunchAutoRegistersLoginItem() {
+        let defaults = freshDefaults()
         let login = FakeLoginItem(initiallyRegistered: false)
-        let prefs = Preferences(defaults: freshDefaults(), loginItem: login)
+        let prefs = Preferences(defaults: defaults, loginItem: login)
+
+        #expect(prefs.startAtLogin == true)
+        #expect(login.isRegistered == true)
+        #expect(defaults.bool(forKey: "limpet.hasLaunchedBefore") == true)
+    }
+
+    @Test @MainActor
+    func subsequentLaunchesRespectExistingState() {
+        let defaults = freshDefaults()
+        defaults.set(true, forKey: "limpet.hasLaunchedBefore")
+
+        let login = FakeLoginItem(initiallyRegistered: false)
+        let prefs = Preferences(defaults: defaults, loginItem: login)
+
+        #expect(prefs.startAtLogin == false)
+        #expect(login.isRegistered == false)
+    }
+
+    @Test @MainActor
+    func startAtLoginRegistersAndUnregisters() {
+        let defaults = freshDefaults()
+        defaults.set(true, forKey: "limpet.hasLaunchedBefore")
+
+        let login = FakeLoginItem(initiallyRegistered: false)
+        let prefs = Preferences(defaults: defaults, loginItem: login)
 
         #expect(prefs.startAtLogin == false)
         prefs.startAtLogin = true
@@ -37,9 +62,13 @@ struct PreferencesTests {
 
     @Test @MainActor
     func startAtLoginSurfacesError() {
+        let defaults = freshDefaults()
+        defaults.set(true, forKey: "limpet.hasLaunchedBefore")
+
         let login = FakeLoginItem()
         login.failOnRegister = FakeError("can't register")
-        let prefs = Preferences(defaults: freshDefaults(), loginItem: login)
+        let prefs = Preferences(defaults: defaults, loginItem: login)
+
         prefs.startAtLogin = true
         #expect(prefs.lastLoginItemError != nil)
         #expect(login.isRegistered == false)

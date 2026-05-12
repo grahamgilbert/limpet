@@ -60,6 +60,20 @@ An **app-specific password**, NOT your Apple ID password.
 
 `9D8XP85393` (your Developer ID team identifier).
 
+### `SPARKLE_PRIVATE_KEY`
+
+The EdDSA private key used to sign release artifacts so Sparkle can verify them. Paired with the public key embedded in `Info.plist` as `SUPublicEDKey`.
+
+Sparkle's `generate_keys` tool created this key once when limpet was first configured and stored it in your login keychain. Export it with:
+
+```sh
+./scripts/export_sparkle_private_key.sh | pbcopy
+```
+
+Paste the (single-line) base64 string as the secret value. The key never leaves your machine unless you copy it; the script just dumps it from `security find-generic-password`.
+
+If you ever lose this key, you'll have to generate a new one (`generate_keys`), update `SUPublicEDKey` in `Info.plist`, and ship a new build via a non-Sparkle channel — old clients will reject updates signed with the new key. Don't lose it.
+
 ## Cutting a release
 
 1. Edit `VERSION` (e.g. `0.2.0`).

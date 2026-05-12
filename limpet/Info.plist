@@ -32,5 +32,11 @@
 	<string>Copyright © Graham Gilbert. All rights reserved.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>SUEnableInstallerLauncherService</key>
+	<false/>
+	<key>SUFeedURL</key>
+	<string>https://raw.githubusercontent.com/grahamgilbert/limpet/main/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>0bxfU70vjTTL8DXWXqdxVd3iMpNXhtiB9qcdyvY0ES4=</string>
 </dict>
 </plist>

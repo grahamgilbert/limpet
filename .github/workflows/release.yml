@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: write   # release creation + appcast.xml commit back
 
 jobs:
   release:
@@ -130,6 +130,7 @@ jobs:
           reverse: 'true'
 
       - name: Create Release
+        id: release
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v0.1.15
         with:
           name: v${{ steps.version.outputs.version }}
@@ -141,3 +142,56 @@ jobs:
             # What's Changed
             ${{ steps.changelog.outputs.changelog }}
           files: limpet-*.dmg
+
+      - name: Sign DMG with Sparkle key
+        id: sparkle_sign
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG="limpet-$VERSION.dmg"
+          # Sparkle's sign_update is shipped as an SPM artifact bundle.
+          SIGN_UPDATE="$(find ~/Library/Developer/Xcode/DerivedData -path '*/SourcePackages/artifacts/sparkle/Sparkle/bin/sign_update' -type f | head -n1)"
+          if [ -z "$SIGN_UPDATE" ]; then
+            # Fall back to building / fetching from the checkouts dir
+            SIGN_UPDATE="$(find ~/Library/Developer/Xcode/DerivedData -name sign_update -type f -perm -u+x 2>/dev/null | head -n1)"
+          fi
+          if [ -z "$SIGN_UPDATE" ]; then
+            echo "::error::sign_update binary not found"
+            exit 1
+          fi
+          echo "Using $SIGN_UPDATE"
+          # sign_update reads the private key from a stdin override via -f -
+          SIG_OUT="$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "$SIGN_UPDATE" -f - "$DMG")"
+          echo "sig_output=$SIG_OUT"
+          # Format: sparkle:edSignature="..." length="..."
+          {
+            echo "sig_output<<EOF"
+            echo "$SIG_OUT"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update appcast.xml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG="limpet-$VERSION.dmg"
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/$DMG"
+          PUB_DATE="$(LC_ALL=en_US.UTF-8 date -u '+%a, %d %b %Y %H:%M:%S %z' | sed 's/+0000/+0000/')"
+          SIG_LINE="${{ steps.sparkle_sign.outputs.sig_output }}"
+
+          python3 scripts/update_appcast.py \
+            --appcast appcast.xml \
+            --version "$VERSION" \
+            --url "$DMG_URL" \
+            --pub-date "$PUB_DATE" \
+            --signature "$SIG_LINE"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add appcast.xml
+          git commit -m "Update appcast for v$VERSION"
+          git push origin HEAD:main

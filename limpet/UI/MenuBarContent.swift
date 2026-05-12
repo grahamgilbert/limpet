@@ -6,6 +6,7 @@ struct MenuBarContent: View {
     @Bindable var preferences: Preferences
     @Bindable var trust: AccessibilityTrustWatcher
     let controller: VpnControlling
+    let openPreferences: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -73,18 +74,20 @@ struct MenuBarContent: View {
             ))
             .toggleStyle(.switch)
 
-            Toggle("Start at Login", isOn: $preferences.startAtLogin)
-                .toggleStyle(.switch)
-
-            if let err = preferences.lastLoginItemError {
-                Text(err)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
             Divider()
+
+            Button {
+                openPreferences()
+            } label: {
+                HStack {
+                    Text("Preferences…")
+                    Spacer()
+                    Text("⌘,").foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut(",", modifiers: .command)
 
             Button {
                 NSApplication.shared.terminate(nil)

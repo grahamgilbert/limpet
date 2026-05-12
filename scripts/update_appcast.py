@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""Append a new <item> to appcast.xml after a release."""
+
+import argparse
+import re
+import sys
+from pathlib import Path
+
+
+def parse_signature_line(line: str) -> dict[str, str]:
+    """Sparkle's sign_update emits something like:
+
+        sparkle:edSignature="..." length="123456"
+
+    Parse it into a dict.
+    """
+    attrs: dict[str, str] = {}
+    for match in re.finditer(r'(\w+(?::\w+)?)="([^"]*)"', line):
+        attrs[match.group(1)] = match.group(2)
+    return attrs
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--appcast", required=True)
+    parser.add_argument("--version", required=True)
+    parser.add_argument("--url", required=True)
+    parser.add_argument("--pub-date", required=True)
+    parser.add_argument("--signature", required=True,
+                        help='sign_update output, e.g. sparkle:edSignature="..." length="..."')
+    args = parser.parse_args()
+
+    sig_attrs = parse_signature_line(args.signature)
+    edsig = sig_attrs.get("sparkle:edSignature", "")
+    length = sig_attrs.get("length", "0")
+
+    if not edsig:
+        print("Could not parse Sparkle signature from input", file=sys.stderr)
+        print(f"  raw: {args.signature!r}", file=sys.stderr)
+        return 2
+
+    min_system_version = "26.0"
+
+    item = f"""        <item>
+            <title>Version {args.version}</title>
+            <pubDate>{args.pub_date}</pubDate>
+            <sparkle:version>{args.version}</sparkle:version>
+            <sparkle:shortVersionString>{args.version}</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>{min_system_version}</sparkle:minimumSystemVersion>
+            <link>https://github.com/grahamgilbert/limpet/releases/tag/v{args.version}</link>
+            <enclosure url="{args.url}" sparkle:edSignature="{edsig}" length="{length}" type="application/octet-stream"/>
+        </item>
+"""
+
+    path = Path(args.appcast)
+    text = path.read_text()
+    if "</channel>" not in text:
+        print("appcast.xml missing </channel>", file=sys.stderr)
+        return 2
+
+    new_text = text.replace("</channel>", item + "    </channel>")
+    path.write_text(new_text)
+    print(f"Appended item for v{args.version}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

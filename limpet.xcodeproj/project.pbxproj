@@ -15,6 +15,8 @@
 		A1010006000000000000A001 /* PopupDismisser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010006000000000000B001 /* PopupDismisser.swift */; };
 		A1010007000000000000A001 /* VpnController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010007000000000000B001 /* VpnController.swift */; };
 		A1010008000000000000A001 /* Watchdog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010008000000000000B001 /* Watchdog.swift */; };
+		A1010020000000000000A001 /* Updater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010020000000000000B001 /* Updater.swift */; };
+		A1010021000000000000A001 /* PreferencesWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010021000000000000B001 /* PreferencesWindow.swift */; };
 		A1010009000000000000A001 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010009000000000000B001 /* AppState.swift */; };
 		A101000A000000000000A001 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000A000000000000B001 /* Preferences.swift */; };
 		A101000B000000000000A001 /* SMAppServiceLoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000B000000000000B001 /* SMAppServiceLoginItem.swift */; };
@@ -43,6 +45,7 @@
 		A1020102000000000000A002 /* pangps_retry.txt in Resources */ = {isa = PBXBuildFile; fileRef = A1020102000000000000B002 /* pangps_retry.txt */; };
 		A1020103000000000000A002 /* pangps_disabled.txt in Resources */ = {isa = PBXBuildFile; fileRef = A1020103000000000000B002 /* pangps_disabled.txt */; };
 		A1020104000000000000A002 /* pangps_mixed_run.txt in Resources */ = {isa = PBXBuildFile; fileRef = A1020104000000000000B002 /* pangps_mixed_run.txt */; };
+		A1030001000000000000A001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A1040001000000000000B001 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,6 +67,8 @@
 		A1010006000000000000B001 /* PopupDismisser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupDismisser.swift; sourceTree = "<group>"; };
 		A1010007000000000000B001 /* VpnController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VpnController.swift; sourceTree = "<group>"; };
 		A1010008000000000000B001 /* Watchdog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Watchdog.swift; sourceTree = "<group>"; };
+		A1010020000000000000B001 /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
+		A1010021000000000000B001 /* PreferencesWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindow.swift; sourceTree = "<group>"; };
 		A1010009000000000000B001 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		A101000A000000000000B001 /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
 		A101000B000000000000B001 /* SMAppServiceLoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMAppServiceLoginItem.swift; sourceTree = "<group>"; };
@@ -103,6 +108,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1030001000000000000A001 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -176,6 +182,7 @@
 				A101001A000000000000B001 /* GlobalProtectWindowProvider.swift */,
 				A1010007000000000000B001 /* VpnController.swift */,
 				A1010008000000000000B001 /* Watchdog.swift */,
+				A1010020000000000000B001 /* Updater.swift */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -197,6 +204,7 @@
 				A101000C000000000000B001 /* StatusIcon.swift */,
 				A101000D000000000000B001 /* MenuBarContent.swift */,
 				A101001B000000000000B001 /* PermissionWindow.swift */,
+				A1010021000000000000B001 /* PreferencesWindow.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -250,6 +258,9 @@
 			dependencies = (
 			);
 			name = limpet;
+			packageProductDependencies = (
+				A1040001000000000000B001 /* Sparkle */,
+			);
 			productName = limpet;
 			productReference = A1010013000000000000B001 /* limpet.app */;
 			productType = "com.apple.product-type.application";
@@ -301,6 +312,9 @@
 			);
 			mainGroup = A1G00000000000000000F000;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A1050001000000000000B001 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			productRefGroup = A1G00003000000000000F003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -349,6 +363,8 @@
 				A101001A000000000000A001 /* GlobalProtectWindowProvider.swift in Sources */,
 				A1010007000000000000A001 /* VpnController.swift in Sources */,
 				A1010008000000000000A001 /* Watchdog.swift in Sources */,
+				A1010020000000000000A001 /* Updater.swift in Sources */,
+				A1010021000000000000A001 /* PreferencesWindow.swift in Sources */,
 				A1010009000000000000A001 /* AppState.swift in Sources */,
 				A101000A000000000000A001 /* Preferences.swift in Sources */,
 				A101000B000000000000A001 /* SMAppServiceLoginItem.swift in Sources */,
@@ -651,6 +667,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A1050001000000000000B001 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1040001000000000000B001 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1050001000000000000B001 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A1000000000000000000D001 /* Project object */;
 }
