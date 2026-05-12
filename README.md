@@ -4,6 +4,8 @@ A macOS menubar app that keeps GlobalProtect connected and silently dismisses it
 
 ![macOS](https://img.shields.io/badge/macOS-26%20Tahoe-black) ![Swift](https://img.shields.io/badge/Swift-6-orange) ![SwiftUI](https://img.shields.io/badge/SwiftUI-yes-blue)
 
+A limpet is a small mollusc that clings to a rock so tightly you need a knife to pry it off. That's how this app treats your VPN session.
+
 ## Why
 
 GlobalProtect 6.2.x on macOS:
