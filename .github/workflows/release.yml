@@ -188,8 +188,8 @@ jobs:
             exit 1
           fi
           echo "Using $SIGN_UPDATE"
-          # sign_update reads the private key from a stdin override via -f -
-          SIG_OUT="$(printf '%s' "$SPARKLE_PRIVATE_KEY" | "$SIGN_UPDATE" -f - "$DMG")"
+          # sign_update accepts the EdDSA private key via -s <key>.
+          SIG_OUT="$("$SIGN_UPDATE" -s "$SPARKLE_PRIVATE_KEY" "$DMG")"
           echo "sig_output=$SIG_OUT"
           # Format: sparkle:edSignature="..." length="..."
           {
