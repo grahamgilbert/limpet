@@ -159,13 +159,6 @@ jobs:
           xcrun stapler validate "$DMG"
           ls -la "$DMG"
 
-      - name: Generate changelog
-        id: changelog
-        uses: metcalfc/changelog-generator@afdcb9470aebdb2252c0c95a1c130723c9e21f3a # v4.1
-        with:
-          myToken: ${{ secrets.GITHUB_TOKEN }}
-          reverse: 'true'
-
       - name: Create Release
         id: release
         uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v0.1.15
@@ -174,10 +167,8 @@ jobs:
           tag_name: v${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
+          generate_release_notes: true
           token: ${{ secrets.GITHUB_TOKEN }}
-          body: |
-            # What's Changed
-            ${{ steps.changelog.outputs.changelog }}
           files: limpet-*.dmg
 
       - name: Sign DMG with Sparkle key
