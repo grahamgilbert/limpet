@@ -8,6 +8,26 @@ struct MenuBarContent: View {
     let controller: VpnControlling
     let openPreferences: () -> Void
 
+    // While a connect/disconnect action is in flight we display the user's
+    // intent immediately and show a spinner. The optimistic value wins
+    // over the real state until either reality matches the intent or the
+    // timeout fires. nil = no action in flight; the three-state distinction
+    // is deliberate, so silence SwiftLint here.
+    // swiftlint:disable:next discouraged_optional_boolean
+    @State private var pendingDesiredOn: Bool?
+    @State private var pendingTask: Task<Void, Never>?
+
+    private var connectionIsOn: Bool {
+        switch appState.connection {
+        case .connected, .connecting: true
+        case .disconnected, .disabled, .unknown: false
+        }
+    }
+
+    private var displayedToggle: Bool {
+        pendingDesiredOn ?? connectionIsOn
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             EmptyView()
@@ -48,31 +68,30 @@ struct MenuBarContent: View {
 
             Divider()
 
-            Toggle("VPN On", isOn: Binding(
-                get: {
-                    switch appState.connection {
-                    case .connected, .connecting: true
-                    case .disconnected, .disabled, .unknown: false
+            HStack(spacing: 8) {
+                Toggle("VPN On", isOn: Binding(
+                    get: { displayedToggle },
+                    set: { newValue in
+                        preferences.desiredOn = newValue
+                        triggerToggle(to: newValue)
                     }
-                },
-                set: { newValue in
-                    preferences.desiredOn = newValue
-                    Task {
-                        do {
-                            if newValue {
-                                try await controller.connect()
-                            } else {
-                                try await controller.disconnect()
-                            }
-                        } catch {
-                            await MainActor.run {
-                                appState.lastError = "\(error)"
-                            }
-                        }
-                    }
+                ))
+                .toggleStyle(.switch)
+
+                if pendingDesiredOn != nil {
+                    ProgressView()
+                        .controlSize(.small)
+                        .scaleEffect(0.7)
                 }
-            ))
-            .toggleStyle(.switch)
+            }
+            .onChange(of: connectionIsOn) { _, newValue in
+                // Reality caught up with intent — drop the optimistic state.
+                if let pending = pendingDesiredOn, pending == newValue {
+                    pendingDesiredOn = nil
+                    pendingTask?.cancel()
+                    pendingTask = nil
+                }
+            }
 
             Divider()
 
@@ -104,5 +123,32 @@ struct MenuBarContent: View {
         }
         .padding(14)
         .frame(width: 240)
+    }
+
+    private func triggerToggle(to newValue: Bool) {
+        appState.lastError = nil
+        pendingTask?.cancel()
+        pendingDesiredOn = newValue
+
+        pendingTask = Task { @MainActor in
+            do {
+                if newValue {
+                    try await controller.connect()
+                } else {
+                    try await controller.disconnect()
+                }
+            } catch {
+                appState.lastError = "\(error)"
+                pendingDesiredOn = nil
+                return
+            }
+            // Hard timeout: if the watchdog/log monitor doesn't reflect the
+            // change in 30 s, give up the optimistic state so the toggle
+            // doesn't get stuck.
+            try? await Task.sleep(for: .seconds(30))
+            if !Task.isCancelled {
+                pendingDesiredOn = nil
+            }
+        }
     }
 }
