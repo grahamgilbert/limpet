@@ -63,12 +63,49 @@ jobs:
           echo "app_path=$APP_PATH" >> "$GITHUB_OUTPUT"
           codesign -dv "$APP_PATH"
 
-      - name: Show signing details
+      - name: Re-sign nested binaries + app
         run: |
           set -euo pipefail
           APP="${{ steps.app.outputs.app_path }}"
-          codesign -dvvv --entitlements - "$APP" || true
+          IDENTITY="Developer ID Application"
+          ENTITLEMENTS="limpet/limpet.entitlements"
+
+          # 1. Re-sign every nested executable inside Sparkle.framework first
+          #    (Sparkle ships pre-signed dev binaries that need to be rewritten
+          #    with our Developer ID + Apple timestamp + hardened runtime).
+          while IFS= read -r f; do
+            echo "Re-signing nested: $f"
+            codesign --force --options runtime --timestamp \
+              --sign "$IDENTITY" "$f"
+          done < <(find "$APP/Contents/Frameworks" \( \
+              -name '*.dylib' -o -name '*.framework' -o \
+              \( -type f -perm -u+x ! -name '*.plist' ! -name '*.nib' \) \
+            \) -print)
+
+          # 2. Re-sign Sparkle's embedded helper apps as a unit.
+          for nested_app in $(find "$APP/Contents/Frameworks" -name '*.app' -type d); do
+            echo "Re-signing nested app: $nested_app"
+            codesign --force --options runtime --timestamp \
+              --sign "$IDENTITY" "$nested_app"
+          done
+
+          # 3. Re-sign Sparkle.framework itself.
+          for fw in "$APP/Contents/Frameworks/"*.framework; do
+            echo "Re-signing framework: $fw"
+            codesign --force --options runtime --timestamp \
+              --sign "$IDENTITY" "$fw"
+          done
+
+          # 4. Finally, re-sign limpet.app with the entitlements file. This
+          #    overwrites any debug entitlements (get-task-allow) that may
+          #    have been baked in.
+          echo "Re-signing main app: $APP"
+          codesign --force --options runtime --timestamp \
+            --entitlements "$ENTITLEMENTS" \
+            --sign "$IDENTITY" "$APP"
+
           codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dvvv --entitlements - "$APP"
 
       - name: Notarize
         env:
