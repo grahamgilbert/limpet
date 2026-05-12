@@ -4,7 +4,6 @@
 import Foundation
 import Observation
 import ServiceManagement
-import UserNotifications
 
 /// User preferences exposed to SwiftUI. Owned by `@MainActor`.
 ///
@@ -48,12 +47,17 @@ public final class Preferences {
 
     private var suppressLoginItemSync = false
 
+    /// Side-effect notifier; injectable so tests don't fire system notifications.
+    private let notifier: LoginItemNotifying
+
     public init(
         defaults: UserDefaults = .standard,
-        loginItem: LoginItemRegistering = SMAppServiceLoginItem()
+        loginItem: LoginItemRegistering = SMAppServiceLoginItem(),
+        notifier: LoginItemNotifying = SystemLoginItemNotifier()
     ) {
         self.defaults = defaults
         self.loginItem = loginItem
+        self.notifier = notifier
         if defaults.object(forKey: Self.desiredOnKey) == nil {
             defaults.set(true, forKey: Self.desiredOnKey)
         }
@@ -115,7 +119,7 @@ public final class Preferences {
             let oldStatus = loginItemStatus
             loginItemStatus = newStatus
             if newStatus == .requiresApproval && oldStatus != .requiresApproval {
-                postRequiresApprovalNotification()
+                notifier.notifyRequiresApproval()
             }
         }
         let actual = loginItem.isRegistered
@@ -123,26 +127,6 @@ public final class Preferences {
         suppressLoginItemSync = true
         startAtLogin = actual
         suppressLoginItemSync = false
-    }
-
-    /// Fire a banner via UNUserNotificationCenter so the user sees something
-    /// even when the limpet menu and Preferences are closed. We don't bother
-    /// requesting permission up front; if the user has denied notifications
-    /// the request silently no-ops, the in-menu/Preferences banner still shows.
-    private func postRequiresApprovalNotification() {
-        let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert]) { granted, _ in
-            guard granted else { return }
-            let content = UNMutableNotificationContent()
-            content.title = "limpet needs approval"
-            content.body = "Open System Settings → General → Login Items & Extensions and turn limpet on so it can launch at login."
-            let request = UNNotificationRequest(
-                identifier: "limpet.loginItemRequiresApproval",
-                content: content,
-                trigger: nil
-            )
-            center.add(request)
-        }
     }
 
     /// Returns a `Sendable` proxy the `Watchdog` actor can read from off-main.

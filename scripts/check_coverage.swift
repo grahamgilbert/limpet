@@ -44,6 +44,7 @@ let excludedSubstrings: [String] = [
     "SMAppServiceLoginItem.swift",          // SMAppService wrapper
     "InstallLocation.swift",                // NSAlert + NSWorkspace UI flow
     "GlobalProtectInstallation.swift",      // NSAlert UI flow
+    "LoginItemNotifier.swift",              // UNUserNotificationCenter wrapper
     "Updater.swift",                        // SPUStandardUpdaterController wrapper
 ]
 

@@ -78,6 +78,34 @@ struct PreferencesTests {
     }
 
     @Test @MainActor
+    func notifiesWhenLoginItemEntersRequiresApproval() {
+        let defaults = freshDefaults()
+        defaults.set(true, forKey: "limpet.hasLaunchedBefore")
+
+        let login = FakeLoginItem(initialStatus: .enabled)
+        let notifier = RecordingLoginItemNotifier()
+        let prefs = Preferences(defaults: defaults, loginItem: login, notifier: notifier)
+
+        #expect(notifier.calls == 0)
+
+        login.setStatus(.requiresApproval)
+        prefs.refreshLoginItemState()
+
+        #expect(notifier.calls == 1)
+
+        // Subsequent refreshes while still in requiresApproval shouldn't re-notify.
+        prefs.refreshLoginItemState()
+        #expect(notifier.calls == 1)
+
+        // Recover, then re-enter requiresApproval — should fire again.
+        login.setStatus(.enabled)
+        prefs.refreshLoginItemState()
+        login.setStatus(.requiresApproval)
+        prefs.refreshLoginItemState()
+        #expect(notifier.calls == 2)
+    }
+
+    @Test @MainActor
     func desiredStateProxyReadsThrough() {
         let defaults = freshDefaults()
         let prefs = Preferences(defaults: defaults, loginItem: FakeLoginItem())
