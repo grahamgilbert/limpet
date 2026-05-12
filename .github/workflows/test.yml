@@ -1,0 +1,76 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & Test (macOS)
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          set -euo pipefail
+          ls /Applications | grep -E '^Xcode' || true
+          # Pick the highest-numbered Xcode_*.app available on the runner.
+          xcode_app="$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -n1 || true)"
+          if [ -z "$xcode_app" ]; then
+            xcode_app="/Applications/Xcode.app"
+          fi
+          echo "Selecting $xcode_app"
+          sudo xcode-select -s "$xcode_app/Contents/Developer"
+          xcodebuild -version
+
+      - name: Build & Test
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project limpet.xcodeproj \
+            -scheme limpet \
+            -destination 'platform=macOS' \
+            -enableCodeCoverage YES \
+            -resultBundlePath build/Test.xcresult \
+            test
+
+      - name: Extract coverage
+        run: |
+          set -euo pipefail
+          xcrun xccov view --report --json build/Test.xcresult > coverage.json
+          ls -la coverage.json
+
+      - name: Enforce coverage thresholds
+        run: |
+          set -euo pipefail
+          swift scripts/check_coverage.swift coverage.json 0.85 limpet/Engine/ limpet/State/
+
+      - name: Upload xcresult bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-result-bundle
+          path: build/Test.xcresult
+          retention-days: 14
+
+  lint:
+    name: SwiftLint
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
+      - name: Run SwiftLint
+        run: swiftlint --strict

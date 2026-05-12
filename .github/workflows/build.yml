@@ -1,0 +1,34 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release-build:
+    name: Release Build
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          set -euo pipefail
+          xcode_app="$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -n1 || true)"
+          if [ -z "$xcode_app" ]; then
+            xcode_app="/Applications/Xcode.app"
+          fi
+          sudo xcode-select -s "$xcode_app/Contents/Developer"
+          xcodebuild -version
+
+      - name: Build (Release)
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project limpet.xcodeproj \
+            -scheme limpet \
+            -configuration Release \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY=- \
+            build

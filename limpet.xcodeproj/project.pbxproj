@@ -1,0 +1,656 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 70;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1010001000000000000A001 /* ConnectionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010001000000000000B001 /* ConnectionState.swift */; };
+		A1010002000000000000A001 /* TimeSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010002000000000000B001 /* TimeSource.swift */; };
+		A1010003000000000000A001 /* Protocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010003000000000000B001 /* Protocols.swift */; };
+		A1010004000000000000A001 /* VpnStatusMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010004000000000000B001 /* VpnStatusMonitor.swift */; };
+		A1010005000000000000A001 /* AXHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010005000000000000B001 /* AXHelpers.swift */; };
+		A1010006000000000000A001 /* PopupDismisser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010006000000000000B001 /* PopupDismisser.swift */; };
+		A1010007000000000000A001 /* VpnController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010007000000000000B001 /* VpnController.swift */; };
+		A1010008000000000000A001 /* Watchdog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010008000000000000B001 /* Watchdog.swift */; };
+		A1010009000000000000A001 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010009000000000000B001 /* AppState.swift */; };
+		A101000A000000000000A001 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000A000000000000B001 /* Preferences.swift */; };
+		A101000B000000000000A001 /* SMAppServiceLoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000B000000000000B001 /* SMAppServiceLoginItem.swift */; };
+		A101001C000000000000A001 /* InstallLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101001C000000000000B001 /* InstallLocation.swift */; };
+		A101000C000000000000A001 /* StatusIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000C000000000000B001 /* StatusIcon.swift */; };
+		A101000D000000000000A001 /* MenuBarContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000D000000000000B001 /* MenuBarContent.swift */; };
+		A101001B000000000000A001 /* PermissionWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101001B000000000000B001 /* PermissionWindow.swift */; };
+		A101000F000000000000A001 /* limpetApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101000F000000000000B001 /* limpetApp.swift */; };
+		A1010010000000000000A001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1010010000000000000B001 /* Assets.xcassets */; };
+		A101001A000000000000A001 /* GlobalProtectWindowProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101001A000000000000B001 /* GlobalProtectWindowProvider.swift */; };
+		A1020001000000000000A002 /* ParsePanGPSLineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020001000000000000B002 /* ParsePanGPSLineTests.swift */; };
+		A1020002000000000000A002 /* LogTailingStatusMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020002000000000000B002 /* LogTailingStatusMonitorTests.swift */; };
+		A1020003000000000000A002 /* WatchdogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020003000000000000B002 /* WatchdogTests.swift */; };
+		A1020004000000000000A002 /* PopupDismisserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020004000000000000B002 /* PopupDismisserTests.swift */; };
+		A1020005000000000000A002 /* AppStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020005000000000000B002 /* AppStateTests.swift */; };
+		A1020006000000000000A002 /* PreferencesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020006000000000000B002 /* PreferencesTests.swift */; };
+		A1020007000000000000A002 /* StatusIconTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020007000000000000B002 /* StatusIconTests.swift */; };
+		A1020008000000000000A002 /* FakeTimeSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020008000000000000B002 /* FakeTimeSource.swift */; };
+		A1020009000000000000A002 /* RecordingVpnController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020009000000000000B002 /* RecordingVpnController.swift */; };
+		A102000A000000000000A002 /* RecordingStateSink.swift in Sources */ = {isa = PBXBuildFile; fileRef = A102000A000000000000B002 /* RecordingStateSink.swift */; };
+		A102000B000000000000A002 /* FakeWindowProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A102000B000000000000B002 /* FakeWindowProvider.swift */; };
+		A102000C000000000000A002 /* FakeLoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = A102000C000000000000B002 /* FakeLoginItem.swift */; };
+		A102000D000000000000A002 /* AsyncSafeLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = A102000D000000000000B002 /* AsyncSafeLock.swift */; };
+		A1020100000000000000A002 /* pangps_connected.txt in Resources */ = {isa = PBXBuildFile; fileRef = A1020100000000000000B002 /* pangps_connected.txt */; };
+		A1020101000000000000A002 /* pangps_disconnected.txt in Resources */ = {isa = PBXBuildFile; fileRef = A1020101000000000000B002 /* pangps_disconnected.txt */; };
+		A1020102000000000000A002 /* pangps_retry.txt in Resources */ = {isa = PBXBuildFile; fileRef = A1020102000000000000B002 /* pangps_retry.txt */; };
+		A1020103000000000000A002 /* pangps_disabled.txt in Resources */ = {isa = PBXBuildFile; fileRef = A1020103000000000000B002 /* pangps_disabled.txt */; };
+		A1020104000000000000A002 /* pangps_mixed_run.txt in Resources */ = {isa = PBXBuildFile; fileRef = A1020104000000000000B002 /* pangps_mixed_run.txt */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A1F00001000000000000C001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A1000000000000000000D001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A1500001000000000000E001;
+			remoteInfo = limpet;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A1010001000000000000B001 /* ConnectionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionState.swift; sourceTree = "<group>"; };
+		A1010002000000000000B001 /* TimeSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeSource.swift; sourceTree = "<group>"; };
+		A1010003000000000000B001 /* Protocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Protocols.swift; sourceTree = "<group>"; };
+		A1010004000000000000B001 /* VpnStatusMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VpnStatusMonitor.swift; sourceTree = "<group>"; };
+		A1010005000000000000B001 /* AXHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXHelpers.swift; sourceTree = "<group>"; };
+		A1010006000000000000B001 /* PopupDismisser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupDismisser.swift; sourceTree = "<group>"; };
+		A1010007000000000000B001 /* VpnController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VpnController.swift; sourceTree = "<group>"; };
+		A1010008000000000000B001 /* Watchdog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Watchdog.swift; sourceTree = "<group>"; };
+		A1010009000000000000B001 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		A101000A000000000000B001 /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };
+		A101000B000000000000B001 /* SMAppServiceLoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SMAppServiceLoginItem.swift; sourceTree = "<group>"; };
+		A101001C000000000000B001 /* InstallLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallLocation.swift; sourceTree = "<group>"; };
+		A101000C000000000000B001 /* StatusIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusIcon.swift; sourceTree = "<group>"; };
+		A101000D000000000000B001 /* MenuBarContent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarContent.swift; sourceTree = "<group>"; };
+		A101001B000000000000B001 /* PermissionWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionWindow.swift; sourceTree = "<group>"; };
+		A101000F000000000000B001 /* limpetApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = limpetApp.swift; sourceTree = "<group>"; };
+		A1010010000000000000B001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A1010011000000000000B001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1010012000000000000B001 /* limpet.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = limpet.entitlements; sourceTree = "<group>"; };
+		A1010013000000000000B001 /* limpet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = limpet.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A101001A000000000000B001 /* GlobalProtectWindowProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalProtectWindowProvider.swift; sourceTree = "<group>"; };
+		A1020001000000000000B002 /* ParsePanGPSLineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsePanGPSLineTests.swift; sourceTree = "<group>"; };
+		A1020002000000000000B002 /* LogTailingStatusMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogTailingStatusMonitorTests.swift; sourceTree = "<group>"; };
+		A1020003000000000000B002 /* WatchdogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchdogTests.swift; sourceTree = "<group>"; };
+		A1020004000000000000B002 /* PopupDismisserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupDismisserTests.swift; sourceTree = "<group>"; };
+		A1020005000000000000B002 /* AppStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTests.swift; sourceTree = "<group>"; };
+		A1020006000000000000B002 /* PreferencesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesTests.swift; sourceTree = "<group>"; };
+		A1020007000000000000B002 /* StatusIconTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusIconTests.swift; sourceTree = "<group>"; };
+		A1020008000000000000B002 /* FakeTimeSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeTimeSource.swift; sourceTree = "<group>"; };
+		A1020009000000000000B002 /* RecordingVpnController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingVpnController.swift; sourceTree = "<group>"; };
+		A102000A000000000000B002 /* RecordingStateSink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingStateSink.swift; sourceTree = "<group>"; };
+		A102000B000000000000B002 /* FakeWindowProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeWindowProvider.swift; sourceTree = "<group>"; };
+		A102000C000000000000B002 /* FakeLoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeLoginItem.swift; sourceTree = "<group>"; };
+		A102000D000000000000B002 /* AsyncSafeLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncSafeLock.swift; sourceTree = "<group>"; };
+		A1020100000000000000B002 /* pangps_connected.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pangps_connected.txt; sourceTree = "<group>"; };
+		A1020101000000000000B002 /* pangps_disconnected.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pangps_disconnected.txt; sourceTree = "<group>"; };
+		A1020102000000000000B002 /* pangps_retry.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pangps_retry.txt; sourceTree = "<group>"; };
+		A1020103000000000000B002 /* pangps_disabled.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pangps_disabled.txt; sourceTree = "<group>"; };
+		A1020104000000000000B002 /* pangps_mixed_run.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pangps_mixed_run.txt; sourceTree = "<group>"; };
+		A1020200000000000000B002 /* limpetTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = limpetTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1500002000000000000E001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1500003000000000000E002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A1G00000000000000000F000 = {
+			isa = PBXGroup;
+			children = (
+				A1G00001000000000000F001 /* limpet */,
+				A1G00002000000000000F002 /* limpetTests */,
+				A1G00003000000000000F003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A1G00001000000000000F001 /* limpet */ = {
+			isa = PBXGroup;
+			children = (
+				A101000F000000000000B001 /* limpetApp.swift */,
+				A1G00010000000000000F010 /* Engine */,
+				A1G00011000000000000F011 /* State */,
+				A1G00012000000000000F012 /* UI */,
+				A1G00013000000000000F013 /* Resources */,
+				A1010011000000000000B001 /* Info.plist */,
+				A1010012000000000000B001 /* limpet.entitlements */,
+			);
+			path = limpet;
+			sourceTree = "<group>";
+		};
+		A1G00002000000000000F002 /* limpetTests */ = {
+			isa = PBXGroup;
+			children = (
+				A1020001000000000000B002 /* ParsePanGPSLineTests.swift */,
+				A1020002000000000000B002 /* LogTailingStatusMonitorTests.swift */,
+				A1020003000000000000B002 /* WatchdogTests.swift */,
+				A1020004000000000000B002 /* PopupDismisserTests.swift */,
+				A1020005000000000000B002 /* AppStateTests.swift */,
+				A1020006000000000000B002 /* PreferencesTests.swift */,
+				A1020007000000000000B002 /* StatusIconTests.swift */,
+				A1G00020000000000000F020 /* Fakes */,
+				A1G00021000000000000F021 /* Fixtures */,
+			);
+			path = limpetTests;
+			sourceTree = "<group>";
+		};
+		A1G00003000000000000F003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1010013000000000000B001 /* limpet.app */,
+				A1020200000000000000B002 /* limpetTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1G00010000000000000F010 /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				A1010001000000000000B001 /* ConnectionState.swift */,
+				A1010002000000000000B001 /* TimeSource.swift */,
+				A1010003000000000000B001 /* Protocols.swift */,
+				A1010004000000000000B001 /* VpnStatusMonitor.swift */,
+				A1010005000000000000B001 /* AXHelpers.swift */,
+				A1010006000000000000B001 /* PopupDismisser.swift */,
+				A101001A000000000000B001 /* GlobalProtectWindowProvider.swift */,
+				A1010007000000000000B001 /* VpnController.swift */,
+				A1010008000000000000B001 /* Watchdog.swift */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
+		A1G00011000000000000F011 /* State */ = {
+			isa = PBXGroup;
+			children = (
+				A1010009000000000000B001 /* AppState.swift */,
+				A101000A000000000000B001 /* Preferences.swift */,
+				A101000B000000000000B001 /* SMAppServiceLoginItem.swift */,
+				A101001C000000000000B001 /* InstallLocation.swift */,
+			);
+			path = State;
+			sourceTree = "<group>";
+		};
+		A1G00012000000000000F012 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				A101000C000000000000B001 /* StatusIcon.swift */,
+				A101000D000000000000B001 /* MenuBarContent.swift */,
+				A101001B000000000000B001 /* PermissionWindow.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		A1G00013000000000000F013 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A1010010000000000000B001 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A1G00020000000000000F020 /* Fakes */ = {
+			isa = PBXGroup;
+			children = (
+				A102000D000000000000B002 /* AsyncSafeLock.swift */,
+				A1020008000000000000B002 /* FakeTimeSource.swift */,
+				A1020009000000000000B002 /* RecordingVpnController.swift */,
+				A102000A000000000000B002 /* RecordingStateSink.swift */,
+				A102000B000000000000B002 /* FakeWindowProvider.swift */,
+				A102000C000000000000B002 /* FakeLoginItem.swift */,
+			);
+			path = Fakes;
+			sourceTree = "<group>";
+		};
+		A1G00021000000000000F021 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				A1020100000000000000B002 /* pangps_connected.txt */,
+				A1020101000000000000B002 /* pangps_disconnected.txt */,
+				A1020102000000000000B002 /* pangps_retry.txt */,
+				A1020103000000000000B002 /* pangps_disabled.txt */,
+				A1020104000000000000B002 /* pangps_mixed_run.txt */,
+			);
+			path = Fixtures;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A1500001000000000000E001 /* limpet */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1600001000000000000G001 /* Build configuration list for PBXNativeTarget "limpet" */;
+			buildPhases = (
+				A1500004000000000000E001 /* Sources */,
+				A1500002000000000000E001 /* Frameworks */,
+				A1500005000000000000E001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = limpet;
+			productName = limpet;
+			productReference = A1010013000000000000B001 /* limpet.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A1500010000000000000E002 /* limpetTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1600002000000000000G002 /* Build configuration list for PBXNativeTarget "limpetTests" */;
+			buildPhases = (
+				A1500006000000000000E002 /* Sources */,
+				A1500003000000000000E002 /* Frameworks */,
+				A1500007000000000000E002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A1500011000000000000E002 /* PBXTargetDependency */,
+			);
+			name = limpetTests;
+			productName = limpetTests;
+			productReference = A1020200000000000000B002 /* limpetTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A1000000000000000000D001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastSwiftUpdateCheck = 1610;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					A1500001000000000000E001 = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
+					A1500010000000000000E002 = {
+						CreatedOnToolsVersion = 26.4.1;
+						TestTargetID = A1500001000000000000E001;
+					};
+				};
+			};
+			buildConfigurationList = A1600000000000000000G000 /* Build configuration list for PBXProject "limpet" */;
+			compatibilityVersion = "Xcode 16.0.Superseded.1";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A1G00000000000000000F000;
+			minimizedProjectReferenceProxies = 1;
+			productRefGroup = A1G00003000000000000F003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A1500001000000000000E001 /* limpet */,
+				A1500010000000000000E002 /* limpetTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A1500005000000000000E001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1010010000000000000A001 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1500007000000000000E002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1020100000000000000A002 /* pangps_connected.txt in Resources */,
+				A1020101000000000000A002 /* pangps_disconnected.txt in Resources */,
+				A1020102000000000000A002 /* pangps_retry.txt in Resources */,
+				A1020103000000000000A002 /* pangps_disabled.txt in Resources */,
+				A1020104000000000000A002 /* pangps_mixed_run.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1500004000000000000E001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A101000F000000000000A001 /* limpetApp.swift in Sources */,
+				A1010001000000000000A001 /* ConnectionState.swift in Sources */,
+				A1010002000000000000A001 /* TimeSource.swift in Sources */,
+				A1010003000000000000A001 /* Protocols.swift in Sources */,
+				A1010004000000000000A001 /* VpnStatusMonitor.swift in Sources */,
+				A1010005000000000000A001 /* AXHelpers.swift in Sources */,
+				A1010006000000000000A001 /* PopupDismisser.swift in Sources */,
+				A101001A000000000000A001 /* GlobalProtectWindowProvider.swift in Sources */,
+				A1010007000000000000A001 /* VpnController.swift in Sources */,
+				A1010008000000000000A001 /* Watchdog.swift in Sources */,
+				A1010009000000000000A001 /* AppState.swift in Sources */,
+				A101000A000000000000A001 /* Preferences.swift in Sources */,
+				A101000B000000000000A001 /* SMAppServiceLoginItem.swift in Sources */,
+				A101001C000000000000A001 /* InstallLocation.swift in Sources */,
+				A101000C000000000000A001 /* StatusIcon.swift in Sources */,
+				A101000D000000000000A001 /* MenuBarContent.swift in Sources */,
+				A101001B000000000000A001 /* PermissionWindow.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1500006000000000000E002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1020001000000000000A002 /* ParsePanGPSLineTests.swift in Sources */,
+				A1020002000000000000A002 /* LogTailingStatusMonitorTests.swift in Sources */,
+				A1020003000000000000A002 /* WatchdogTests.swift in Sources */,
+				A1020004000000000000A002 /* PopupDismisserTests.swift in Sources */,
+				A1020005000000000000A002 /* AppStateTests.swift in Sources */,
+				A1020006000000000000A002 /* PreferencesTests.swift in Sources */,
+				A1020007000000000000A002 /* StatusIconTests.swift in Sources */,
+				A1020008000000000000A002 /* FakeTimeSource.swift in Sources */,
+				A1020009000000000000A002 /* RecordingVpnController.swift in Sources */,
+				A102000A000000000000A002 /* RecordingStateSink.swift in Sources */,
+				A102000B000000000000A002 /* FakeWindowProvider.swift in Sources */,
+				A102000C000000000000A002 /* FakeLoginItem.swift in Sources */,
+				A102000D000000000000A002 /* AsyncSafeLock.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A1500011000000000000E002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A1500001000000000000E001 /* limpet */;
+			targetProxy = A1F00001000000000000C001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A1600100000000000000H001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A1600101000000000000H001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A1600200000000000000H002 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = limpet/limpet.entitlements;
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 9D8XP85393;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = limpet/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.grahamgilbert.limpet;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A1600201000000000000H002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = limpet/limpet.entitlements;
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 9D8XP85393;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = limpet/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.grahamgilbert.limpet;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A1600300000000000000H003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9D8XP85393;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.grahamgilbert.limpetTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/limpet.app/Contents/MacOS/limpet";
+			};
+			name = Debug;
+		};
+		A1600301000000000000H003 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_IDENTITY = "Developer ID Application";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 9D8XP85393;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.grahamgilbert.limpetTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/limpet.app/Contents/MacOS/limpet";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1600000000000000000G000 /* Build configuration list for PBXProject "limpet" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1600100000000000000H001 /* Debug */,
+				A1600101000000000000H001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1600001000000000000G001 /* Build configuration list for PBXNativeTarget "limpet" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1600200000000000000H002 /* Debug */,
+				A1600201000000000000H002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1600002000000000000G002 /* Build configuration list for PBXNativeTarget "limpetTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1600300000000000000H003 /* Debug */,
+				A1600301000000000000H003 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A1000000000000000000D001 /* Project object */;
+}

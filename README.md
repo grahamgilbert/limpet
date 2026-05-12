@@ -1,0 +1,71 @@
+# limpet
+
+A macOS menubar app that keeps GlobalProtect connected and silently dismisses its "you got disconnected" / "connectivity issues" / "session timeout" popups.
+
+![macOS](https://img.shields.io/badge/macOS-26%20Tahoe-black) ![Swift](https://img.shields.io/badge/Swift-6-orange) ![SwiftUI](https://img.shields.io/badge/SwiftUI-yes-blue)
+
+## Why
+
+GlobalProtect 6.2.x on macOS:
+
+1. After certain network blips, gives up reconnecting instead of retrying.
+2. Throws a modal dialog every time the connection drops — you have to dismiss it manually before the agent will try again.
+
+limpet fixes both.
+
+## Features
+
+- **VPN On** desired-state toggle. When on, limpet reconnects GlobalProtect any time it drops. When off, GP stays disconnected.
+- **Live status** in the menubar — connected / connecting / disconnected / disabled.
+- **Auto-dismiss** the GP disconnect / connectivity-issues / session-timeout popup.
+- **Start at login** via `SMAppService`.
+
+## Requirements
+
+- macOS 26 (Tahoe)
+- GlobalProtect 6.2+ at `/Applications/GlobalProtect.app`
+
+## Install
+
+Download the latest `limpet.app` from [Releases](https://github.com/grahamgilbert/limpet/releases) and drag it to `/Applications/`.
+
+Or build from source:
+
+```sh
+git clone https://github.com/grahamgilbert/limpet.git
+cd limpet
+xcodebuild -scheme limpet -configuration Release build
+cp -R ~/Library/Developer/Xcode/DerivedData/limpet-*/Build/Products/Release/limpet.app /Applications/
+```
+
+## First launch
+
+1. Open `/Applications/limpet.app`.
+2. limpet shows a permission window — click **Grant Permission**.
+3. macOS shows the standard Accessibility prompt; click **Open System Settings**.
+4. Toggle limpet on in the Accessibility list.
+5. The permission window closes automatically. limpet now lives in the menubar.
+
+limpet uses Accessibility to control GlobalProtect — no Automation, Full Disk Access, or other privileges.
+
+## Using it
+
+Click the shell icon in the menubar:
+
+- **VPN On** — flip to disconnect/reconnect. While on, limpet keeps GP connected even after network drops.
+- **Start at Login** — flip to launch limpet automatically when you log in.
+- **Quit limpet** — stops the app.
+
+The menubar icon and the **Connected / Disconnected / Connecting** label always reflect GlobalProtect's actual state, read live from `/Library/Logs/PaloAltoNetworks/GlobalProtect/PanGPS.log`.
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) — how limpet works internally.
+- [Development](docs/DEVELOPMENT.md) — building, testing, linting.
+- [Releasing](docs/RELEASING.md) — cutting a signed, notarized release.
+- [Permissions](docs/PERMISSIONS.md) — exactly what limpet uses, and why.
+- [Limitations](docs/LIMITATIONS.md) — known gotchas and edge cases.
+
+## License
+
+MIT.

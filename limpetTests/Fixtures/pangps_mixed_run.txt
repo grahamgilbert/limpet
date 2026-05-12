@@ -1,0 +1,7 @@
+P 967-T32979 05/11/2026 02:46:44:486 Debug(7974): NetworkConnectionMonitorThread: m_state = 0, m_bOnDemand=1, m_bAgentEnabled=1, m_bJustResumed is 0,
+ m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is 0, IsVPNInRetry() is 0.
+P 967-T32979 05/11/2026 02:46:45:486 Debug( 203): interface en0 ip 192.168.2.29/255.255.255.0
+P 967-T32979 05/11/2026 02:46:46:486 Debug(7974): NetworkConnectionMonitorThread: m_state = 0, m_bOnDemand=1, m_bAgentEnabled=1, m_bJustResumed is 0,
+ m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is 0, IsVPNInRetry() is 1.
+P 967-T32979 05/11/2026 02:46:48:486 Debug(7974): NetworkConnectionMonitorThread: m_state = 0, m_bOnDemand=1, m_bAgentEnabled=1, m_bJustResumed is 0,
+ m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is 1, IsVPNInRetry() is 0.

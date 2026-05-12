@@ -1,0 +1,2 @@
+P 967-T32979 05/11/2026 02:46:44:486 Debug(7974): NetworkConnectionMonitorThread: m_state = 0, m_bOnDemand=1, m_bAgentEnabled=1, m_bJustResumed is 0,
+ m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is 0, IsVPNInRetry() is 1.
