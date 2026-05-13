@@ -86,23 +86,23 @@ struct PreferencesTests {
         let notifier = RecordingLoginItemNotifier()
         let prefs = Preferences(defaults: defaults, loginItem: login, notifier: notifier)
 
-        #expect(notifier.calls == 0)
+        #expect(notifier.approvalCalls == 0)
 
         login.setStatus(.requiresApproval)
         prefs.refreshLoginItemState()
 
-        #expect(notifier.calls == 1)
+        #expect(notifier.approvalCalls == 1)
 
         // Subsequent refreshes while still in requiresApproval shouldn't re-notify.
         prefs.refreshLoginItemState()
-        #expect(notifier.calls == 1)
+        #expect(notifier.approvalCalls == 1)
 
         // Recover, then re-enter requiresApproval — should fire again.
         login.setStatus(.enabled)
         prefs.refreshLoginItemState()
         login.setStatus(.requiresApproval)
         prefs.refreshLoginItemState()
-        #expect(notifier.calls == 2)
+        #expect(notifier.approvalCalls == 2)
     }
 
     @Test @MainActor

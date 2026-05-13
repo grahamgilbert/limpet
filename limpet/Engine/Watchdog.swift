@@ -33,7 +33,7 @@ public actor Watchdog {
     private let stateSink: StateSink
     private let desired: DesiredStateProviding
     private let time: TimeSource
-    private let notifier: AppNotifying
+    private let notifier: SecurityNotifying
 
     private let connectingGrace: Duration
     private let initialBackoff: Duration
@@ -45,7 +45,7 @@ public actor Watchdog {
     private var lastDisconnectAt: Date?
     private var consecutiveDisconnects: Int = 0
     private var lastState: ConnectionState = .unknown
-    // Fire the signature-invalid notification at most once per process lifetime.
+    // Prevents a notification storm when GP stays in a persistently bad signature state.
     private var signatureNotificationFired = false
 
     /// State observed at the moment the most recent action was issued. While
@@ -59,7 +59,7 @@ public actor Watchdog {
         stateSink: StateSink,
         desired: DesiredStateProviding,
         time: TimeSource = SystemTimeSource(),
-        notifier: AppNotifying = SystemLoginItemNotifier(),
+        notifier: SecurityNotifying = SystemLoginItemNotifier(),
         connectingGrace: Duration = .seconds(15),
         initialBackoff: Duration = .seconds(8),
         maxBackoff: Duration = .seconds(300)

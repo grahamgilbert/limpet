@@ -67,12 +67,12 @@ public final class Preferences {
     private var suppressLoginItemSync = false
 
     /// Side-effect notifier; injectable so tests don't fire system notifications.
-    private let notifier: AppNotifying
+    private let notifier: LoginItemNotifying
 
     public init(
         defaults: UserDefaults = .standard,
         loginItem: LoginItemRegistering = SMAppServiceLoginItem(),
-        notifier: AppNotifying = SystemLoginItemNotifier()
+        notifier: LoginItemNotifying = SystemLoginItemNotifier()
     ) {
         self.defaults = defaults
         self.loginItem = loginItem

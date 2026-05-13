@@ -29,8 +29,11 @@ public enum LoginItemStatus: Sendable, Equatable {
     case unknown
 }
 
-public protocol AppNotifying: Sendable {
+public protocol LoginItemNotifying: Sendable {
     func notifyRequiresApproval()
+}
+
+public protocol SecurityNotifying: Sendable {
     func notifyGlobalProtectSignatureInvalid()
 }
 

@@ -34,18 +34,10 @@ public final class AccessibilityVpnController: VpnControlling {
     private static let bundleID = "com.paloaltonetworks.GlobalProtect.client"
 
     private let disconnectComment: String
-    // Cache verified PIDs to avoid re-validating on every AX call within one controller lifetime.
-    private var verifiedPIDs: Set<pid_t> = []
+    private let verifier = GPCodeSignatureVerifier()
 
     public init(disconnectComment: String = "limpet user toggle") {
         self.disconnectComment = disconnectComment
-    }
-
-    private func cachedVerify(pid: pid_t) -> Bool {
-        if verifiedPIDs.contains(pid) { return true }
-        let valid = verifyGPCodeSignature(pid: pid)
-        if valid { verifiedPIDs.insert(pid) }
-        return valid
     }
 
     public func connect() async throws {
@@ -66,7 +58,7 @@ public final class AccessibilityVpnController: VpnControlling {
 
     // MARK: - Private
 
-    private func gpAppElement() throws -> AXUIElement {
+    private func gpApp() throws -> NSRunningApplication {
         guard AX.isProcessTrusted(prompt: false) else {
             Self.log.error("Accessibility is not trusted")
             throw VpnControlError.accessibilityNotTrusted
@@ -75,12 +67,15 @@ public final class AccessibilityVpnController: VpnControlling {
             Self.log.error("GlobalProtect is not running")
             throw VpnControlError.globalProtectNotRunning
         }
-        let pid = app.processIdentifier
-        guard cachedVerify(pid: pid) else {
-            Self.log.error("GlobalProtect pid=\(pid) failed code-signature check")
+        guard verifier.verify(app: app) else {
+            Self.log.error("GlobalProtect pid=\(app.processIdentifier) failed code-signature check")
             throw VpnControlError.signatureVerificationFailed
         }
-        return AXUIElementCreateApplication(pid)
+        return app
+    }
+
+    private func gpAppElement() throws -> AXUIElement {
+        AXUIElementCreateApplication(try gpApp().processIdentifier)
     }
 
     private func popoverIsOpen() -> Bool {
@@ -91,7 +86,10 @@ public final class AccessibilityVpnController: VpnControlling {
     }
 
     private func openPopoverIfNeeded() async throws {
-        if popoverIsOpen() {
+        // Check signature first so the error propagates; popoverIsOpen() uses try? and would
+        // silently swallow signatureVerificationFailed.
+        let verifiedApp = try gpApp()
+        if !AX.windows(AXUIElementCreateApplication(verifiedApp.processIdentifier)).isEmpty {
             Self.log.info("popover already open")
             return
         }
@@ -144,26 +142,19 @@ public final class AccessibilityVpnController: VpnControlling {
     }
 
     private func findGPStatusItemSystemWide() -> AXUIElement? {
-        // System-wide AX root, walk its menubars looking for an item whose
-        // attributes mention GlobalProtect. On Tahoe the menubar extras live
-        // under the Control Center process; system-wide search reaches them.
-        // Guard against confused-deputy: verify the owning process is signed by
-        // Palo Alto Networks before acting on any element we find this way.
+        // On Tahoe the menubar extras live under the Control Center process; system-wide
+        // search reaches them. Guard against confused-deputy: verify GP is genuine before
+        // acting on any element whose title/description it controls. We cannot filter by
+        // the element's PID here because Control Center hosts the element under its own PID.
         guard let gpApp = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).first,
-              cachedVerify(pid: gpApp.processIdentifier) else {
+              verifier.verify(app: gpApp) else {
             Self.log.error("system-wide fallback: GP not running or signature check failed")
             return nil
         }
-        let gpPID = gpApp.processIdentifier
         let systemWide = AXUIElementCreateSystemWide()
         return AX.find(systemWide) { element in
             let role = AX.role(element) ?? ""
             guard role == "AXMenuExtra" || role == kAXMenuBarItemRole as String else {
-                return false
-            }
-            // Only accept elements that belong to the verified GP process.
-            var elementPID: pid_t = 0
-            guard AXUIElementGetPid(element, &elementPID) == .success, elementPID == gpPID else {
                 return false
             }
             let title = AX.title(element) ?? ""

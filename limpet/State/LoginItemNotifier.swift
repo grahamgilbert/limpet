@@ -6,7 +6,7 @@ import UserNotifications
 
 /// Real implementation backed by `UNUserNotificationCenter`. Authorization is
 /// requested lazily on first use — if denied, the call silently no-ops.
-public struct SystemLoginItemNotifier: AppNotifying {
+public struct SystemLoginItemNotifier: LoginItemNotifying, SecurityNotifying {
     public init() {}
 
     public func notifyRequiresApproval() {
