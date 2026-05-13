@@ -136,7 +136,7 @@ struct PopupDismisserLoopTests {
         loop.start()
         try await Task.sleep(for: .milliseconds(80))
         loop.stop()
-        #expect(counter.count == 0)
+        #expect(counter.count == 0) // swiftlint:disable:this empty_count
     }
 
     @Test("stop is idempotent")
