@@ -33,6 +33,7 @@ public actor Watchdog {
     private let stateSink: StateSink
     private let desired: DesiredStateProviding
     private let time: TimeSource
+    private let notifier: AppNotifying
 
     private let connectingGrace: Duration
     private let initialBackoff: Duration
@@ -44,6 +45,8 @@ public actor Watchdog {
     private var lastDisconnectAt: Date?
     private var consecutiveDisconnects: Int = 0
     private var lastState: ConnectionState = .unknown
+    // Fire the signature-invalid notification at most once per process lifetime.
+    private var signatureNotificationFired = false
 
     /// State observed at the moment the most recent action was issued. While
     /// the observed state still equals this snapshot, we hold off on further
@@ -56,6 +59,7 @@ public actor Watchdog {
         stateSink: StateSink,
         desired: DesiredStateProviding,
         time: TimeSource = SystemTimeSource(),
+        notifier: AppNotifying = SystemLoginItemNotifier(),
         connectingGrace: Duration = .seconds(15),
         initialBackoff: Duration = .seconds(8),
         maxBackoff: Duration = .seconds(300)
@@ -64,6 +68,7 @@ public actor Watchdog {
         self.stateSink = stateSink
         self.desired = desired
         self.time = time
+        self.notifier = notifier
         self.connectingGrace = connectingGrace
         self.initialBackoff = initialBackoff
         self.maxBackoff = maxBackoff
@@ -164,6 +169,7 @@ public actor Watchdog {
             try await controller.connect()
         } catch {
             Self.log.error("connect failed: \(error.localizedDescription)")
+            handleControllerError(error)
         }
         lastConnectAt = time.now()
         consecutiveConnects += 1
@@ -177,10 +183,18 @@ public actor Watchdog {
             try await controller.disconnect()
         } catch {
             Self.log.error("disconnect failed: \(error.localizedDescription)")
+            handleControllerError(error)
         }
         lastDisconnectAt = time.now()
         consecutiveDisconnects += 1
         stateAtLastDisconnect = snapshotState
+    }
+
+    private func handleControllerError(_ error: Error) {
+        guard case VpnControlError.signatureVerificationFailed = error,
+              !signatureNotificationFired else { return }
+        signatureNotificationFired = true
+        notifier.notifyGlobalProtectSignatureInvalid()
     }
 
     private func resetBackoff() {

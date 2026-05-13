@@ -9,14 +9,14 @@ import Testing
 struct WatchdogTests {
     @Test("desired-on, sees .disconnected → calls connect once")
     func desiredOnDisconnectedConnectsOnce() async {
-        let (dog, controller, _, _) = makeDog(desiredOn: true)
+        let (dog, controller, _, _, _) = makeDog(desiredOn: true)
         await dog.handle(.disconnected)
         #expect(controller.connectCount == 1)
     }
 
     @Test("desired-on, sees .connecting → does not click")
     func desiredOnConnectingNoOp() async {
-        let (dog, controller, _, _) = makeDog(desiredOn: true)
+        let (dog, controller, _, _, _) = makeDog(desiredOn: true)
         await dog.handle(.connecting)
         #expect(controller.connectCount == 0)
         #expect(controller.disconnectCount == 0)
@@ -24,42 +24,42 @@ struct WatchdogTests {
 
     @Test("desired-on, sees .connected → does not click")
     func desiredOnConnectedNoOp() async {
-        let (dog, controller, _, _) = makeDog(desiredOn: true)
+        let (dog, controller, _, _, _) = makeDog(desiredOn: true)
         await dog.handle(.connected)
         #expect(controller.connectCount == 0)
     }
 
     @Test("desired-off, sees .connected → calls disconnect")
     func desiredOffConnectedDisconnects() async {
-        let (dog, controller, _, _) = makeDog(desiredOn: false)
+        let (dog, controller, _, _, _) = makeDog(desiredOn: false)
         await dog.handle(.connected)
         #expect(controller.disconnectCount == 1)
     }
 
     @Test("desired-off, sees .connecting → calls disconnect")
     func desiredOffConnectingDisconnects() async {
-        let (dog, controller, _, _) = makeDog(desiredOn: false)
+        let (dog, controller, _, _, _) = makeDog(desiredOn: false)
         await dog.handle(.connecting)
         #expect(controller.disconnectCount == 1)
     }
 
     @Test("desired-off, sees .disconnected → no-op")
     func desiredOffDisconnectedNoOp() async {
-        let (dog, controller, _, _) = makeDog(desiredOn: false)
+        let (dog, controller, _, _, _) = makeDog(desiredOn: false)
         await dog.handle(.disconnected)
         #expect(controller.disconnectCount == 0)
     }
 
     @Test("desired-on, sees .disabled → calls connect")
     func desiredOnDisabledConnects() async {
-        let (dog, controller, _, _) = makeDog(desiredOn: true)
+        let (dog, controller, _, _, _) = makeDog(desiredOn: true)
         await dog.handle(.disabled)
         #expect(controller.connectCount == 1)
     }
 
     @Test("rapid .disconnected events → backoff prevents click storm")
     func backoffPreventsClickStorm() async {
-        let (dog, controller, time, _) = makeDog(desiredOn: true)
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true)
         await dog.handle(.disconnected) // attempt #1
         #expect(controller.connectCount == 1)
 
@@ -75,7 +75,7 @@ struct WatchdogTests {
 
     @Test("backoff doubles between consecutive failures, capped at maxBackoff")
     func backoffExponential() async {
-        let (dog, controller, time, _) = makeDog(desiredOn: true)
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true)
         await dog.handle(.disconnected) // attempt #1, lastConnectAt = t0
 
         time.advance(by: 2)             // 2s — at the boundary of initial backoff
@@ -93,7 +93,7 @@ struct WatchdogTests {
 
     @Test("seeing .connected resets the backoff so the next .disconnected reconnects immediately")
     func connectedResetsBackoff() async {
-        let (dog, controller, time, _) = makeDog(desiredOn: true)
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true)
         await dog.handle(.disconnected)
         #expect(controller.connectCount == 1)
 
@@ -108,7 +108,7 @@ struct WatchdogTests {
 
     @Test("desired-on .connecting does not click until grace expires")
     func connectingGrace() async {
-        let (dog, controller, time, _) = makeDog(desiredOn: true, connectingGrace: .seconds(15))
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true, connectingGrace: .seconds(15))
         await dog.handle(.connecting)
         #expect(controller.connectCount == 0)
 
@@ -123,7 +123,7 @@ struct WatchdogTests {
 
     @Test("state sink receives every observed state in order")
     func stateSinkRecords() async {
-        let (dog, _, _, sink) = makeDog(desiredOn: true)
+        let (dog, _, _, sink, _) = makeDog(desiredOn: true)
         await dog.handle(.unknown)
         await dog.handle(.connecting)
         await dog.handle(.connected)
@@ -177,7 +177,7 @@ struct WatchdogTests {
 
     @Test("desired-off backoff also rate-limits disconnect calls")
     func disconnectBackoff() async {
-        let (dog, controller, time, _) = makeDog(desiredOn: false)
+        let (dog, controller, time, _, _) = makeDog(desiredOn: false)
         await dog.handle(.connected)
         #expect(controller.disconnectCount == 1)
 
@@ -188,13 +188,53 @@ struct WatchdogTests {
         await dog.handle(.connected)
         #expect(controller.disconnectCount == 2)
     }
+
+    @Test("signatureVerificationFailed on connect fires security notification")
+    func signatureFailureOnConnectNotifies() async {
+        let notifier = RecordingLoginItemNotifier()
+        let (dog, controller, _, _, _) = makeDog(desiredOn: true, notifier: notifier)
+        controller.failNext = VpnControlError.signatureVerificationFailed
+        await dog.handle(.disconnected)
+        #expect(notifier.signatureInvalidCalls == 1)
+    }
+
+    @Test("signatureVerificationFailed on disconnect fires security notification")
+    func signatureFailureOnDisconnectNotifies() async {
+        let notifier = RecordingLoginItemNotifier()
+        let (dog, controller, _, _, _) = makeDog(desiredOn: false, notifier: notifier)
+        controller.failNext = VpnControlError.signatureVerificationFailed
+        await dog.handle(.connected)
+        #expect(notifier.signatureInvalidCalls == 1)
+    }
+
+    @Test("signature notification fires only once even after repeated failures")
+    func signatureNotificationFiredOnlyOnce() async {
+        let notifier = RecordingLoginItemNotifier()
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true, notifier: notifier)
+        controller.failNext = VpnControlError.signatureVerificationFailed
+        await dog.handle(.disconnected)    // fires notification
+        time.advance(by: 2.5)
+        controller.failNext = VpnControlError.signatureVerificationFailed
+        await dog.handle(.disconnected)    // backoff elapsed → retries, but no second notification
+        #expect(notifier.signatureInvalidCalls == 1)
+    }
+
+    @Test("non-signature errors do not fire security notification")
+    func otherErrorsDoNotNotify() async {
+        let notifier = RecordingLoginItemNotifier()
+        let (dog, controller, _, _, _) = makeDog(desiredOn: true, notifier: notifier)
+        controller.failNext = FakeError("network timeout")
+        await dog.handle(.disconnected)
+        #expect(notifier.signatureInvalidCalls == 0)
+    }
 }
 
 private func makeDog(
     desiredOn: Bool,
     connectingGrace: Duration = .seconds(15),
-    initialBackoff: Duration = .seconds(2)
-) -> (Watchdog, RecordingVpnController, FakeTimeSource, RecordingStateSink) {
+    initialBackoff: Duration = .seconds(2),
+    notifier: RecordingLoginItemNotifier = RecordingLoginItemNotifier()
+) -> (Watchdog, RecordingVpnController, FakeTimeSource, RecordingStateSink, RecordingLoginItemNotifier) {
     let controller = RecordingVpnController()
     let sink = RecordingStateSink()
     let desired = StaticDesiredState(desiredOn)
@@ -204,8 +244,9 @@ private func makeDog(
         stateSink: sink,
         desired: desired,
         time: time,
+        notifier: notifier,
         connectingGrace: connectingGrace,
         initialBackoff: initialBackoff
     )
-    return (dog, controller, time, sink)
+    return (dog, controller, time, sink, notifier)
 }

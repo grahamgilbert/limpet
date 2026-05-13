@@ -4,15 +4,23 @@
 import Foundation
 @testable import limpet
 
-public final class RecordingLoginItemNotifier: LoginItemNotifying, @unchecked Sendable {
+public final class RecordingLoginItemNotifier: AppNotifying, @unchecked Sendable {
     private let lock = AsyncSafeLock()
-    private var _calls: Int = 0
+    private var _approvalCalls: Int = 0
+    private var _signatureInvalidCalls: Int = 0
 
     public init() {}
 
-    public var calls: Int { lock.withLock { _calls } }
+    public var approvalCalls: Int { lock.withLock { _approvalCalls } }
+    public var signatureInvalidCalls: Int { lock.withLock { _signatureInvalidCalls } }
+    /// Legacy accessor for tests that only care about approval notifications.
+    public var calls: Int { approvalCalls }
 
     public func notifyRequiresApproval() {
-        lock.withLock { _calls += 1 }
+        lock.withLock { _approvalCalls += 1 }
+    }
+
+    public func notifyGlobalProtectSignatureInvalid() {
+        lock.withLock { _signatureInvalidCalls += 1 }
     }
 }
