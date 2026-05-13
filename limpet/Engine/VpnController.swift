@@ -12,6 +12,7 @@ public enum VpnControlError: Error, CustomStringConvertible {
     case statusItemNotFound
     case popoverDidNotOpen
     case buttonNotFound(String)
+    case signatureVerificationFailed
 
     public var description: String {
         switch self {
@@ -20,6 +21,7 @@ public enum VpnControlError: Error, CustomStringConvertible {
         case .statusItemNotFound: "GlobalProtect menu-bar status item not found"
         case .popoverDidNotOpen: "GlobalProtect popover did not open after click"
         case .buttonNotFound(let name): "Could not find '\(name)' in GlobalProtect UI"
+        case .signatureVerificationFailed: "GlobalProtect process failed code-signature verification"
         }
     }
 }
@@ -32,9 +34,18 @@ public final class AccessibilityVpnController: VpnControlling {
     private static let bundleID = "com.paloaltonetworks.GlobalProtect.client"
 
     private let disconnectComment: String
+    // Cache verified PIDs to avoid re-validating on every AX call within one controller lifetime.
+    private var verifiedPIDs: Set<pid_t> = []
 
     public init(disconnectComment: String = "limpet user toggle") {
         self.disconnectComment = disconnectComment
+    }
+
+    private func cachedVerify(pid: pid_t) -> Bool {
+        if verifiedPIDs.contains(pid) { return true }
+        let valid = verifyGPCodeSignature(pid: pid)
+        if valid { verifiedPIDs.insert(pid) }
+        return valid
     }
 
     public func connect() async throws {
@@ -64,7 +75,12 @@ public final class AccessibilityVpnController: VpnControlling {
             Self.log.error("GlobalProtect is not running")
             throw VpnControlError.globalProtectNotRunning
         }
-        return AXUIElementCreateApplication(app.processIdentifier)
+        let pid = app.processIdentifier
+        guard cachedVerify(pid: pid) else {
+            Self.log.error("GlobalProtect pid=\(pid) failed code-signature check")
+            throw VpnControlError.signatureVerificationFailed
+        }
+        return AXUIElementCreateApplication(pid)
     }
 
     private func popoverIsOpen() -> Bool {
@@ -131,17 +147,29 @@ public final class AccessibilityVpnController: VpnControlling {
         // System-wide AX root, walk its menubars looking for an item whose
         // attributes mention GlobalProtect. On Tahoe the menubar extras live
         // under the Control Center process; system-wide search reaches them.
+        // Guard against confused-deputy: verify the owning process is signed by
+        // Palo Alto Networks before acting on any element we find this way.
+        guard let gpApp = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).first,
+              cachedVerify(pid: gpApp.processIdentifier) else {
+            Self.log.error("system-wide fallback: GP not running or signature check failed")
+            return nil
+        }
+        let gpPID = gpApp.processIdentifier
         let systemWide = AXUIElementCreateSystemWide()
         return AX.find(systemWide) { element in
             let role = AX.role(element) ?? ""
             guard role == "AXMenuExtra" || role == kAXMenuBarItemRole as String else {
                 return false
             }
+            // Only accept elements that belong to the verified GP process.
+            var elementPID: pid_t = 0
+            guard AXUIElementGetPid(element, &elementPID) == .success, elementPID == gpPID else {
+                return false
+            }
             let title = AX.title(element) ?? ""
             let desc = AX.string(element, kAXDescriptionAttribute as String) ?? ""
-            let match = title.localizedCaseInsensitiveContains("globalprotect")
+            return title.localizedCaseInsensitiveContains("globalprotect")
                 || desc.localizedCaseInsensitiveContains("globalprotect")
-            return match
         }
     }
 

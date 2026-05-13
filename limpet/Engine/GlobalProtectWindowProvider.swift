@@ -20,7 +20,8 @@ public final class GlobalProtectWindowProvider: WindowProvider, @unchecked Senda
     public init() {}
 
     public func currentWindows() -> [PopupWindow] {
-        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).first else {
+        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).first,
+              verifyGPCodeSignature(pid: app.processIdentifier) else {
             return []
         }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
