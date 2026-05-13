@@ -5,6 +5,21 @@ import Foundation
 import Observation
 import Sparkle
 
+private enum AppcastURL {
+    static let stable = "https://raw.githubusercontent.com/grahamgilbert/limpet/main/appcast.xml"
+    static let prerelease = "https://raw.githubusercontent.com/grahamgilbert/limpet/main/appcast-prerelease.xml"
+}
+
+// Sparkle calls feedURLString before every update check, so toggling the
+// prerelease preference takes effect at the next check without a restart.
+private final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
+    var wantsPrereleases: () -> Bool = { false }
+
+    func feedURLString(for updater: SPUUpdater) -> String? {
+        wantsPrereleases() ? AppcastURL.prerelease : AppcastURL.stable
+    }
+}
+
 /// SwiftUI-friendly wrapper around `SPUStandardUpdaterController`. Surfaces
 /// the toggle "automatically check for updates" as an `@Observable` property
 /// and exposes a `checkForUpdates()` method bound to a button.
@@ -16,6 +31,7 @@ import Sparkle
 @Observable
 public final class Updater {
     private let controller: SPUStandardUpdaterController
+    private let delegate = UpdaterDelegate()
 
     /// Indirection so SwiftUI re-renders when Sparkle's defaults change.
     public var automaticallyChecksForUpdates: Bool {
@@ -24,16 +40,18 @@ public final class Updater {
         }
     }
 
-    public init() {
+    public init(defaults: UserDefaults = .standard) {
+        let key = Preferences.installPrereleasesKey
+        delegate.wantsPrereleases = { defaults.bool(forKey: key) }
         self.controller = SPUStandardUpdaterController(
             startingUpdater: true,
-            updaterDelegate: nil,
+            updaterDelegate: delegate,
             userDriverDelegate: nil
         )
         // Default automatic update checks to on for first-time users. Sparkle
         // persists user choices in NSUserDefaults under SUEnableAutomaticChecks,
         // so subsequent runs respect what they've toggled.
-        if UserDefaults.standard.object(forKey: "SUEnableAutomaticChecks") == nil {
+        if defaults.object(forKey: "SUEnableAutomaticChecks") == nil {
             controller.updater.automaticallyChecksForUpdates = true
         }
         self.automaticallyChecksForUpdates = controller.updater.automaticallyChecksForUpdates

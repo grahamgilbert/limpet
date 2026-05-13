@@ -1,0 +1,48 @@
+name: Promote to Stable
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Marketing version to promote (e.g. 0.2.5)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Copy item to stable appcast
+        run: |
+          set -euo pipefail
+          python3 scripts/promote_release.py \
+            --prerelease-appcast appcast-prerelease.xml \
+            --stable-appcast appcast.xml \
+            --version "${{ inputs.version }}"
+
+      - name: Mark GitHub release as stable
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.version }}"
+          gh release edit "v${VERSION}" --prerelease=false
+
+      - name: Commit updated stable appcast
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add appcast.xml
+          git diff --cached --quiet && echo "No changes to commit." && exit 0
+          git commit -m "Promote v${{ inputs.version }} to stable"
+          git push origin HEAD:main

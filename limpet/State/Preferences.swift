@@ -19,6 +19,7 @@ public final class Preferences {
     private let loginItem: LoginItemRegistering
     fileprivate nonisolated static let desiredOnKey = "limpet.desiredOn"
     public nonisolated static let dismissPopupsKey = "limpet.dismissPopups"
+    public nonisolated static let installPrereleasesKey = "limpet.installPrereleases"
     fileprivate nonisolated static let hasLaunchedBeforeKey = "limpet.hasLaunchedBefore"
 
     public var desiredOn: Bool {
@@ -30,6 +31,12 @@ public final class Preferences {
     /// disable automation while debugging or validating new popup behavior.
     public var dismissPopups: Bool {
         didSet { defaults.set(dismissPopups, forKey: Self.dismissPopupsKey) }
+    }
+
+    /// When true, Sparkle checks the prerelease appcast feed instead of the
+    /// stable one. Takes effect at the next update check.
+    public var installPrereleases: Bool {
+        didSet { defaults.set(installPrereleases, forKey: Self.installPrereleasesKey) }
     }
 
     /// `true` once limpet has successfully launched at least once.
@@ -85,6 +92,7 @@ public final class Preferences {
         }
         self.desiredOn = defaults.bool(forKey: Self.desiredOnKey)
         self.dismissPopups = defaults.bool(forKey: Self.dismissPopupsKey)
+        self.installPrereleases = defaults.bool(forKey: Self.installPrereleasesKey)
 
         // First-launch defaults: opt the user into Start at Login on the very
         // first run so the VPN watchdog actually keeps the VPN up across

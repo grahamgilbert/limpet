@@ -169,7 +169,7 @@ jobs:
           name: v${{ steps.version.outputs.version }}
           tag_name: v${{ steps.version.outputs.version }}
           draft: false
-          prerelease: false
+          prerelease: true
           generate_release_notes: true
           token: ${{ secrets.GITHUB_TOKEN }}
           files: limpet-*.dmg
@@ -241,7 +241,7 @@ jobs:
           KEY_FILE="${{ steps.sparkle_tools.outputs.key_file }}"
 
           python3 scripts/update_appcast.py \
-            --appcast appcast.xml \
+            --appcast appcast-prerelease.xml \
             --version "$VERSION" \
             --build "$BUILD_NUMBER" \
             --url "$DMG_URL" \
@@ -249,12 +249,12 @@ jobs:
             --signature "$SIG_LINE" \
             --release-notes-url "$NOTES_URL"
 
-          "$SIGN_UPDATE" --ed-key-file "$KEY_FILE" --disable-signing-warning appcast.xml
+          "$SIGN_UPDATE" --ed-key-file "$KEY_FILE" --disable-signing-warning appcast-prerelease.xml
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add appcast.xml
-          git commit -m "Update and sign appcast for v$VERSION"
+          git add appcast-prerelease.xml
+          git commit -m "Update prerelease appcast for v$VERSION"
           git push origin HEAD:main
 
       - name: Clean up key file
