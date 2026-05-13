@@ -8,6 +8,8 @@ import Foundation
 /// so on launch we surface a clear message instead of silently watchdog-ing
 /// a state that will never change.
 enum GlobalProtectInstallation {
+    static let bundleID = "com.paloaltonetworks.GlobalProtect.client"
+
     /// Standard install path on macOS. PAN doesn't ship a portable copy, so
     /// any install lands here.
     private static let appPath = "/Applications/GlobalProtect.app"

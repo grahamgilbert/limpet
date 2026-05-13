@@ -83,8 +83,11 @@ public func openLoginItemsSettings() {
     }
 }
 
-/// Watches `AXIsProcessTrusted` on a 1-second tick and publishes changes.
-/// macOS doesn't notify when permission flips, so we poll.
+/// Watches `AXIsProcessTrusted` and publishes changes.
+///
+/// macOS has no notification for TCC changes, so we poll. 5 seconds is
+/// imperceptible to the user — the permission window's `.onChange` already
+/// handles the fast path when it's open.
 @MainActor
 @Observable
 public final class AccessibilityTrustWatcher {
@@ -93,7 +96,7 @@ public final class AccessibilityTrustWatcher {
     public init() {
         Task { [weak self] in
             while true {
-                try? await Task.sleep(for: .seconds(1))
+                try? await Task.sleep(for: .seconds(5))
                 guard let self else { return }
                 let now = AX.isProcessTrusted(prompt: false)
                 if now != self.isTrusted { self.isTrusted = now }

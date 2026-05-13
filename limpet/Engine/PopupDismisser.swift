@@ -1,6 +1,8 @@
 // Copyright 2026 Graham Gilbert. Licensed under the Apache License,
 // Version 2.0. See LICENSE in the repo root for details.
 
+@preconcurrency import ApplicationServices
+import AppKit
 import Foundation
 import OSLog
 
@@ -65,23 +67,39 @@ public final class PopupDismisserImpl: PopupDismissing, @unchecked Sendable {
     }
 }
 
-/// Background loop that runs a `PopupDismissing` once per `interval`.
+/// Background loop that dismisses GlobalProtect popups.
+///
+/// When GlobalProtect is running, it registers an `AXObserver` for
+/// `kAXWindowCreatedNotification` so dismissal fires within milliseconds of
+/// the popup appearing.  A 5-second fallback poller handles the period before
+/// GP launches and any edge cases where the observer misses an event.
+///
+/// When GP is not running, only the fallback poller runs — it is cheap
+/// because `currentWindows()` returns immediately when no GP process exists.
 public final class PopupDismisserLoop: @unchecked Sendable {
+    private static let bundleID = GlobalProtectInstallation.bundleID
+    private static let log = Logger(subsystem: "com.grahamgilbert.limpet", category: "popup")
+
     private let dismisser: PopupDismissing
     private let time: TimeSource
-    private let interval: Duration
+    private let fallbackInterval: Duration
     private let isEnabled: @Sendable () -> Bool
     private var task: Task<Void, Never>?
+
+    // AXObserver machinery — only touched from the dedicated observer runloop thread.
+    private var axObserver: AXObserver?
+    private var observedPID: pid_t?
+    private let observerQueue = DispatchQueue(label: "com.grahamgilbert.limpet.axobserver")
 
     public init(
         dismisser: PopupDismissing,
         time: TimeSource = SystemTimeSource(),
-        interval: Duration = .seconds(1),
+        fallbackInterval: Duration = .seconds(5),
         isEnabled: @escaping @Sendable () -> Bool = { true }
     ) {
         self.dismisser = dismisser
         self.time = time
-        self.interval = interval
+        self.fallbackInterval = fallbackInterval
         self.isEnabled = isEnabled
     }
 
@@ -89,26 +107,132 @@ public final class PopupDismisserLoop: @unchecked Sendable {
         task?.cancel()
         let dismisser = self.dismisser
         let time = self.time
-        let interval = self.interval
+        let fallbackInterval = self.fallbackInterval
         let isEnabled = self.isEnabled
+        let weakSelf = Weak(self)
+
+        // Fallback poller: fires every `fallbackInterval` and also handles
+        // attaching/detaching the AXObserver as the GP process comes and goes.
         task = Task.detached {
             while !Task.isCancelled {
                 if isEnabled() {
                     _ = await dismisser.tick()
                 }
+                weakSelf.value?.syncObserver(dismisser: dismisser)
                 do {
-                    try await time.sleep(for: interval)
+                    try await time.sleep(for: fallbackInterval)
                 } catch {
                     break
                 }
             }
+            weakSelf.value?.tearDownObserver()
         }
     }
 
     public func stop() {
         task?.cancel()
         task = nil
+        tearDownObserver()
     }
 
-    deinit { task?.cancel() }
+    deinit {
+        task?.cancel()
+        tearDownObserver()
+    }
+
+    // MARK: - AXObserver
+
+    private func syncObserver(dismisser: PopupDismissing) {
+        guard AX.isProcessTrusted(prompt: false) else {
+            tearDownObserver()
+            return
+        }
+        let gpApp = NSRunningApplication
+            .runningApplications(withBundleIdentifier: Self.bundleID).first
+        let pid = gpApp?.processIdentifier
+        let isEnabled = self.isEnabled
+
+        observerQueue.async { [weak self] in
+            guard let self else { return }
+            if pid == self.observedPID { return }
+
+            self.tearDownObserverOnQueue()
+
+            guard let pid else { return }
+
+            var obs: AXObserver?
+            let ctx = AXCallbackContext(dismisser: dismisser, isEnabled: isEnabled)
+            let callback: AXObserverCallback = { _, _, _, refcon in
+                guard let refcon else { return }
+                let ctx = Unmanaged<AXCallbackContext>.fromOpaque(refcon).takeUnretainedValue()
+                guard ctx.isEnabled() else { return }
+                Task { _ = await ctx.dismisser.tick() }
+            }
+            guard AXObserverCreate(pid, callback, &obs) == .success,
+                  let obs else { return }
+
+            let appElement = AXUIElementCreateApplication(pid)
+            let retained = Unmanaged.passRetained(ctx)
+            let err = AXObserverAddNotification(
+                obs,
+                appElement,
+                kAXWindowCreatedNotification as CFString,
+                retained.toOpaque()
+            )
+            guard err == .success else {
+                retained.release()
+                return
+            }
+
+            CFRunLoopAddSource(
+                CFRunLoopGetMain(),
+                AXObserverGetRunLoopSource(obs),
+                .defaultMode
+            )
+            Self.log.debug("AXObserver attached to GP pid=\(pid)")
+            self.axObserver = obs
+            self.observedPID = pid
+            self.retainedContextPtr = retained
+        }
+    }
+
+    // Retained refcon passed to AXObserverAddNotification; released on teardown.
+    private var retainedContextPtr: Unmanaged<AXCallbackContext>?
+
+    private func tearDownObserver() {
+        observerQueue.async { [weak self] in
+            self?.tearDownObserverOnQueue()
+        }
+    }
+
+    private func tearDownObserverOnQueue() {
+        if let obs = axObserver {
+            CFRunLoopRemoveSource(
+                CFRunLoopGetMain(),
+                AXObserverGetRunLoopSource(obs),
+                .defaultMode
+            )
+            Self.log.debug("AXObserver detached from GP pid=\(self.observedPID ?? -1)")
+        }
+        retainedContextPtr?.release()
+        retainedContextPtr = nil
+        axObserver = nil
+        observedPID = nil
+    }
+}
+
+/// Bundles the dismisser and the enabled-check for the AX callback refcon.
+private final class AXCallbackContext: @unchecked Sendable {
+    let dismisser: any PopupDismissing
+    let isEnabled: @Sendable () -> Bool
+    init(dismisser: any PopupDismissing, isEnabled: @escaping @Sendable () -> Bool) {
+        self.dismisser = dismisser
+        self.isEnabled = isEnabled
+    }
+}
+
+/// Non-retaining wrapper so the loop task can hold a weak self reference.
+private final class Weak<T: AnyObject>: @unchecked Sendable {
+    weak var value: T?
+    init(_ value: T) { self.value = value }
 }

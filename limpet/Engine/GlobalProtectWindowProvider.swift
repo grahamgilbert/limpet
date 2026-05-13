@@ -15,7 +15,7 @@ import Foundation
 /// Accessibility permission granted, so it's covered by manual verification,
 /// not by unit tests.
 public final class GlobalProtectWindowProvider: WindowProvider, @unchecked Sendable {
-    private static let bundleID = "com.paloaltonetworks.GlobalProtect.client"
+    private static let bundleID = GlobalProtectInstallation.bundleID
     private let verifier = GPCodeSignatureVerifier()
 
     public init() {}

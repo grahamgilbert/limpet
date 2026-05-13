@@ -1,6 +1,7 @@
 // Copyright 2026 Graham Gilbert. Licensed under the Apache License,
 // Version 2.0. See LICENSE in the repo root for details.
 
+import AppKit
 import Foundation
 import Observation
 import ServiceManagement
@@ -17,6 +18,7 @@ import ServiceManagement
 public final class Preferences {
     private let defaults: UserDefaults
     private let loginItem: LoginItemRegistering
+    private nonisolated(unsafe) var refreshTask: Task<Void, Never>?
     fileprivate nonisolated static let desiredOnKey = "limpet.desiredOn"
     public nonisolated static let dismissPopupsKey = "limpet.dismissPopups"
     public nonisolated static let installPrereleasesKey = "limpet.installPrereleases"
@@ -110,9 +112,21 @@ public final class Preferences {
 
         // Periodic resync so the toggle reflects the OS even if the user
         // changed it externally (System Settings → General → Login Items).
-        Task { [weak self] in
-            while true {
-                try? await Task.sleep(for: .seconds(2))
+        // 5 s is more than fast enough; the menu onAppear already handles
+        // the common case. We also refresh on system wake, which is when
+        // SMAppService status is most likely to have shifted.
+        refreshTask = Task { [weak self] in
+            let wakeStream = NotificationCenter.default
+                .notifications(named: NSWorkspace.didWakeNotification, object: nil)
+            while !Task.isCancelled {
+                await withTaskGroup(of: Void.self) { group in
+                    group.addTask { try? await Task.sleep(for: .seconds(5)) }
+                    group.addTask {
+                        for await _ in wakeStream { break }
+                    }
+                    await group.next()
+                    group.cancelAll()
+                }
                 guard let self else { return }
                 self.refreshLoginItemState()
             }
@@ -159,6 +173,8 @@ public final class Preferences {
         startAtLogin = actual
         suppressLoginItemSync = false
     }
+
+    deinit { refreshTask?.cancel() }
 
     public func desiredStateProxy() -> DesiredStateProxy {
         let snapshot = UncheckedDefaults(defaults)

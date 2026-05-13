@@ -15,6 +15,10 @@ public let panGPSLogPath = "/Library/Logs/PaloAltoNetworks/GlobalProtect/PanGPS.
 ///
 /// Handles log rotation by reopening when the file's inode changes. If the
 /// path is unreadable at startup, emits `.unknown` once and keeps polling.
+///
+/// Uses a `DispatchSourceFileSystemObject` to wake only on actual file
+/// activity (writes, rotations). A 10-second safety poll backstop catches
+/// any events the kernel drops.
 public final class LogTailingStatusMonitor: VpnStatusStreaming, @unchecked Sendable {
     public let stream: AsyncStream<ConnectionState>
     private let continuation: AsyncStream<ConnectionState>.Continuation
@@ -23,7 +27,7 @@ public final class LogTailingStatusMonitor: VpnStatusStreaming, @unchecked Senda
     public init(
         path: String = panGPSLogPath,
         time: TimeSource = SystemTimeSource(),
-        pollInterval: Duration = .seconds(1)
+        pollInterval: Duration = .seconds(10)
     ) {
         var cont: AsyncStream<ConnectionState>.Continuation!
         self.stream = AsyncStream { cont = $0 }
@@ -34,7 +38,7 @@ public final class LogTailingStatusMonitor: VpnStatusStreaming, @unchecked Senda
             await Self.runLoop(
                 path: path,
                 time: time,
-                pollInterval: pollInterval,
+                safetyInterval: pollInterval,
                 continuation: continuation
             )
         }
@@ -50,7 +54,7 @@ public final class LogTailingStatusMonitor: VpnStatusStreaming, @unchecked Senda
     private static func runLoop(
         path: String,
         time: TimeSource,
-        pollInterval: Duration,
+        safetyInterval: Duration,
         continuation: AsyncStream<ConnectionState>.Continuation
     ) async {
         var reader = LogReader(path: path)
@@ -64,20 +68,72 @@ public final class LogTailingStatusMonitor: VpnStatusStreaming, @unchecked Senda
             lastEmitted = .unknown
         }
 
+        // Signal channel: the DispatchSource posts here on every interesting
+        // filesystem event (write, extend, rename, delete). Buffering is
+        // capped at 1 so rapid writes coalesce into a single wakeup instead
+        // of queuing up and busy-looping the drain.
+        let signal = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+
+        // Open the file with O_EVTONLY so we don't prevent log rotation.
+        var fsSource: DispatchSourceFileSystemObject? = makeFSSource(
+            path: path,
+            signal: signal.continuation
+        )
+
         while !Task.isCancelled {
-            do {
-                try await time.sleep(for: pollInterval)
-            } catch {
-                break
+            // Wait for a filesystem event or the safety backstop.
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    _ = await signal.stream.first { _ in true }
+                }
+                group.addTask {
+                    try? await time.sleep(for: safetyInterval)
+                }
+                await group.next()
+                group.cancelAll()
             }
 
+            guard !Task.isCancelled else { break }
+
+            // Sample the inode before consuming so we can detect rotation.
+            // consumeAppended calls rotateIfNeeded internally, which opens a
+            // new handle for the replacement file; comparing the inode after
+            // the fact would always show equality.
+            let inodeBefore = inodeOf(path: path)
+            let wasAccessible = reader.isAccessible
             for state in reader.consumeAppended() where state != lastEmitted {
                 continuation.yield(state)
                 lastEmitted = state
             }
+            let inodeAfter = inodeOf(path: path)
+            // Recreate the DispatchSource when the file was rotated (inode
+            // changed) or when the file first appeared (was inaccessible and
+            // is now readable).
+            if inodeAfter != inodeBefore || (!wasAccessible && reader.isAccessible) {
+                fsSource?.cancel()
+                fsSource = makeFSSource(path: path, signal: signal.continuation)
+            }
         }
 
+        fsSource?.cancel()
         continuation.finish()
+    }
+
+    private static func makeFSSource(
+        path: String,
+        signal: AsyncStream<Void>.Continuation
+    ) -> DispatchSourceFileSystemObject? {
+        let fd = open(path, O_RDONLY | O_EVTONLY)
+        guard fd >= 0 else { return nil }
+        let src = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .extend, .rename, .delete],
+            queue: .global(qos: .utility)
+        )
+        src.setEventHandler { signal.yield() }
+        src.setCancelHandler { close(fd) }
+        src.resume()
+        return src
     }
 }
 
