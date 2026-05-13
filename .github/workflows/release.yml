@@ -149,6 +149,7 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           DMG="limpet-$VERSION.dmg"
           STAGING="$(mktemp -d)"
+          trap "rm -rf '$STAGING'" EXIT
           cp -R "$APP" "$STAGING/"
           ln -s /Applications "$STAGING/Applications"
           hdiutil create -volname "limpet" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
@@ -186,7 +187,7 @@ jobs:
               *old_dsa*) continue ;;
               *) SIGN_UPDATE="$c"; break ;;
             esac
-          done < <(find build ~/Library/Developer/Xcode/DerivedData /Users/runner -maxdepth 8 -name sign_update -type f -perm -u+x 2>/dev/null)
+          done < <(find build ~/Library/Developer/Xcode/DerivedData "$HOME" -maxdepth 8 -name sign_update -type f -perm -u+x 2>/dev/null)
 
           if [ -z "$SIGN_UPDATE" ]; then
             echo "::error::sign_update binary not found"
@@ -220,9 +221,9 @@ jobs:
             exit "$SIG_RC"
           fi
           {
-            echo "sig_output<<EOF"
+            echo "sig_output<<SPARKLE_SIG_EOF"
             echo "$SIG_OUT"
-            echo "EOF"
+            echo "SPARKLE_SIG_EOF"
           } >> "$GITHUB_OUTPUT"
 
       - name: Update and sign appcast.xml
@@ -236,7 +237,6 @@ jobs:
           PUB_DATE="$(LC_ALL=en_US.UTF-8 date -u '+%a, %d %b %Y %H:%M:%S %z')"
           SIG_LINE="${{ steps.sparkle_sign.outputs.sig_output }}"
           BUILD_NUMBER="$(git rev-list --count HEAD)"
-          NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/v$VERSION"
           SIGN_UPDATE="${{ steps.sparkle_tools.outputs.sign_update }}"
           KEY_FILE="${{ steps.sparkle_tools.outputs.key_file }}"
 
@@ -246,8 +246,7 @@ jobs:
             --build "$BUILD_NUMBER" \
             --url "$DMG_URL" \
             --pub-date "$PUB_DATE" \
-            --signature "$SIG_LINE" \
-            --release-notes-url "$NOTES_URL"
+            --signature "$SIG_LINE"
 
           "$SIGN_UPDATE" --ed-key-file "$KEY_FILE" --disable-signing-warning appcast.xml
 
