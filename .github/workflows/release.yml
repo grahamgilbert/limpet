@@ -186,7 +186,7 @@ jobs:
               *old_dsa*) continue ;;
               *) SIGN_UPDATE="$c"; break ;;
             esac
-          done < <(find build ~/Library/Developer/Xcode/DerivedData /Users/runner -name sign_update -type f -perm -u+x 2>/dev/null)
+          done < <(find build ~/Library/Developer/Xcode/DerivedData /Users/runner -maxdepth 8 -name sign_update -type f -perm -u+x 2>/dev/null)
 
           if [ -z "$SIGN_UPDATE" ]; then
             echo "::error::sign_update binary not found"
@@ -209,12 +209,6 @@ jobs:
           SIGN_UPDATE="${{ steps.sparkle_tools.outputs.sign_update }}"
           KEY_FILE="${{ steps.sparkle_tools.outputs.key_file }}"
 
-          if [ ! -f "$DMG" ]; then
-            echo "::error::DMG '$DMG' not found in $(pwd)"
-            ls -la
-            exit 1
-          fi
-
           set +e
           SIG_OUT="$("$SIGN_UPDATE" --ed-key-file "$KEY_FILE" "$DMG" 2>&1)"
           SIG_RC=$?
@@ -225,7 +219,11 @@ jobs:
             echo "::error::sign_update failed"
             exit "$SIG_RC"
           fi
-          echo "sig_output=$SIG_OUT" >> "$GITHUB_OUTPUT"
+          {
+            echo "sig_output<<EOF"
+            echo "$SIG_OUT"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Update and sign appcast.xml
         env:

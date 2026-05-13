@@ -40,5 +40,7 @@
 	<string>0bxfU70vjTTL8DXWXqdxVd3iMpNXhtiB9qcdyvY0ES4=</string>
 	<key>SURequireSignedFeed</key>
 	<true/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
 </dict>
 </plist>
