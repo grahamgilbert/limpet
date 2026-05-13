@@ -174,17 +174,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: limpet-*.dmg
 
-      - name: Sign DMG with Sparkle key
-        id: sparkle_sign
+      - name: Locate sign_update and prepare key file
+        id: sparkle_tools
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          VERSION="${{ steps.version.outputs.version }}"
-          DMG="limpet-$VERSION.dmg"
-
-          # Sparkle's sign_update ships as an SPM binary artifact. Skip the
-          # legacy DSA copy under bin/old_dsa_scripts/.
           SIGN_UPDATE=""
           while IFS= read -r c; do
             case "$c" in
@@ -199,18 +194,26 @@ jobs:
             exit 1
           fi
           echo "Using $SIGN_UPDATE"
-          ls -la limpet-*.dmg 2>&1 || true
+          echo "sign_update=$SIGN_UPDATE" >> "$GITHUB_OUTPUT"
+
+          KEY_FILE="$(mktemp)"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
+          echo "key_file=$KEY_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Sign DMG with Sparkle key
+        id: sparkle_sign
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG="limpet-$VERSION.dmg"
+          SIGN_UPDATE="${{ steps.sparkle_tools.outputs.sign_update }}"
+          KEY_FILE="${{ steps.sparkle_tools.outputs.key_file }}"
+
           if [ ! -f "$DMG" ]; then
             echo "::error::DMG '$DMG' not found in $(pwd)"
             ls -la
             exit 1
           fi
-
-          # Sparkle accepts a private-key file via --ed-key-file. Stash the
-          # secret in a tempfile (-s flag is deprecated and gets logged).
-          KEY_FILE="$(mktemp)"
-          trap 'rm -f "$KEY_FILE"' EXIT
-          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
 
           set +e
           SIG_OUT="$("$SIGN_UPDATE" --ed-key-file "$KEY_FILE" "$DMG" 2>&1)"
@@ -222,14 +225,9 @@ jobs:
             echo "::error::sign_update failed"
             exit "$SIG_RC"
           fi
-          # Format: sparkle:edSignature="..." length="..."
-          {
-            echo "sig_output<<EOF"
-            echo "$SIG_OUT"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          echo "sig_output=$SIG_OUT" >> "$GITHUB_OUTPUT"
 
-      - name: Update appcast.xml
+      - name: Update and sign appcast.xml
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -237,19 +235,12 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           DMG="limpet-$VERSION.dmg"
           DMG_URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/$DMG"
-          PUB_DATE="$(LC_ALL=en_US.UTF-8 date -u '+%a, %d %b %Y %H:%M:%S %z' | sed 's/+0000/+0000/')"
+          PUB_DATE="$(LC_ALL=en_US.UTF-8 date -u '+%a, %d %b %Y %H:%M:%S %z')"
           SIG_LINE="${{ steps.sparkle_sign.outputs.sig_output }}"
-
-          # Sparkle compares <sparkle:version> against the running app's
-          # CFBundleVersion. We use the git commit count (set by
-          # scripts/stamp_version.sh during the build) so versions are
-          # monotonically increasing integers.
           BUILD_NUMBER="$(git rev-list --count HEAD)"
-
-          # Sparkle's update dialog fetches the release-notes URL and renders
-          # it as HTML. GitHub serves a release page at this URL; Sparkle's
-          # WebKit view handles it fine.
           NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/v$VERSION"
+          SIGN_UPDATE="${{ steps.sparkle_tools.outputs.sign_update }}"
+          KEY_FILE="${{ steps.sparkle_tools.outputs.key_file }}"
 
           python3 scripts/update_appcast.py \
             --appcast appcast.xml \
@@ -260,8 +251,14 @@ jobs:
             --signature "$SIG_LINE" \
             --release-notes-url "$NOTES_URL"
 
+          "$SIGN_UPDATE" --ed-key-file "$KEY_FILE" --disable-signing-warning appcast.xml
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add appcast.xml
-          git commit -m "Update appcast for v$VERSION"
+          git commit -m "Update and sign appcast for v$VERSION"
           git push origin HEAD:main
+
+      - name: Clean up key file
+        if: always()
+        run: rm -f "${{ steps.sparkle_tools.outputs.key_file }}"
