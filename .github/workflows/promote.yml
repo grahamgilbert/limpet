@@ -1,0 +1,72 @@
+name: Promote to Stable
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Marketing version to promote (e.g. 0.2.5)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: macos-26
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve SPM packages (fetches sign_update)
+        run: swift package resolve
+
+      - name: Copy item to stable appcast
+        run: |
+          set -euo pipefail
+          python3 scripts/promote_release.py \
+            --prerelease-appcast appcast-prerelease.xml \
+            --stable-appcast appcast.xml \
+            --version "${{ inputs.version }}"
+
+      - name: Sign stable appcast
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          SIGN_UPDATE=""
+          while IFS= read -r c; do
+            case "$c" in
+              *old_dsa*) continue ;;
+              *) SIGN_UPDATE="$c"; break ;;
+            esac
+          done < <(find .build ~/Library/Developer/Xcode/DerivedData -maxdepth 8 -name sign_update -type f -perm -u+x 2>/dev/null)
+
+          if [ -z "$SIGN_UPDATE" ]; then
+            echo "::error::sign_update binary not found"
+            exit 1
+          fi
+
+          KEY_FILE="$(mktemp)"
+          trap 'rm -f "$KEY_FILE"' EXIT
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
+          "$SIGN_UPDATE" --ed-key-file "$KEY_FILE" --disable-signing-warning appcast.xml
+
+      - name: Commit updated stable appcast
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add appcast.xml
+          git diff --cached --quiet && echo "No changes to commit." && exit 0
+          git commit -m "Promote v${{ inputs.version }} to stable"
+          git push origin HEAD:main
+
+      - name: Mark GitHub release as stable
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.version }}"
+          gh release edit "v${VERSION}" --prerelease=false
