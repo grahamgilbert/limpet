@@ -18,10 +18,18 @@ public final class Preferences {
     private let defaults: UserDefaults
     private let loginItem: LoginItemRegistering
     fileprivate nonisolated static let desiredOnKey = "limpet.desiredOn"
+    fileprivate nonisolated static let dismissPopupsKey = "limpet.dismissPopups"
     fileprivate nonisolated static let hasLaunchedBeforeKey = "limpet.hasLaunchedBefore"
 
     public var desiredOn: Bool {
         didSet { defaults.set(desiredOn, forKey: Self.desiredOnKey) }
+    }
+
+    /// Controls whether limpet automatically dismisses GlobalProtect popups.
+    /// This is intentionally separate from VPN reconnect behavior so users can
+    /// disable automation while debugging or validating new popup behavior.
+    public var dismissPopups: Bool {
+        didSet { defaults.set(dismissPopups, forKey: Self.dismissPopupsKey) }
     }
 
     /// `true` once limpet has successfully launched at least once.
@@ -72,7 +80,11 @@ public final class Preferences {
         if defaults.object(forKey: Self.desiredOnKey) == nil {
             defaults.set(true, forKey: Self.desiredOnKey)
         }
+        if defaults.object(forKey: Self.dismissPopupsKey) == nil {
+            defaults.set(true, forKey: Self.dismissPopupsKey)
+        }
         self.desiredOn = defaults.bool(forKey: Self.desiredOnKey)
+        self.dismissPopups = defaults.bool(forKey: Self.dismissPopupsKey)
 
         // First-launch defaults: opt the user into Start at Login on the very
         // first run so the VPN watchdog actually keeps the VPN up across
@@ -109,9 +121,6 @@ public final class Preferences {
         } catch {
             lastLoginItemError = "\(error)"
         }
-        // Re-read the actual state so the UI reflects what the system did,
-        // even if it differs from what we asked for. Suppress didSet while
-        // we sync so we don't loop back through SMAppService.
         let actual = loginItem.isRegistered
         loginItemStatus = loginItem.status
         if actual != wanted {
@@ -121,20 +130,12 @@ public final class Preferences {
         }
     }
 
-    /// Re-reads the system's actual login-item state and updates the
-    /// observable property if it has drifted (e.g. user toggled it in
-    /// System Settings). Call when the menu reopens.
     public func refreshLoginItemState() {
         let newStatus = loginItem.status
         if newStatus != loginItemStatus {
             let oldStatus = loginItemStatus
             loginItemStatus = newStatus
 
-            // Notify when limpet *was* registered (or the user wants it
-            // registered) but the system has dropped it. macOS sometimes
-            // hands back .requiresApproval, sometimes .notFound, sometimes
-            // .notRegistered — they all mean "limpet won't launch at login
-            // and the user should know".
             let userWantsLogin = startAtLogin || oldStatus == .enabled
             let nowBroken = newStatus == .requiresApproval
                 || (newStatus == .notFound && oldStatus == .enabled)
@@ -150,8 +151,6 @@ public final class Preferences {
         suppressLoginItemSync = false
     }
 
-    /// Returns a `Sendable` proxy the `Watchdog` actor can read from off-main.
-    /// Reads pass through to `UserDefaults`, which is thread-safe.
     public func desiredStateProxy() -> DesiredStateProxy {
         let snapshot = UncheckedDefaults(defaults)
         return DesiredStateProxy {
@@ -165,8 +164,6 @@ private struct UncheckedDefaults: @unchecked Sendable {
     init(_ value: UserDefaults) { self.value = value }
 }
 
-/// `Sendable` adapter that gives the `Watchdog` a non-isolated read of
-/// `desiredOn`.
 public final class DesiredStateProxy: DesiredStateProviding, @unchecked Sendable {
     private let read: @Sendable () -> Bool
 
