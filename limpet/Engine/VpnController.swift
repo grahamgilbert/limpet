@@ -96,17 +96,10 @@ public final class AccessibilityVpnController: VpnControlling {
         guard let app = try? gpAppElement() else {
             throw VpnControlError.statusItemNotFound
         }
-        var ref: CFTypeRef?
-        let result = AXUIElementCopyAttributeValue(
-            app, kAXExtrasMenuBarAttribute as CFString, &ref
-        )
-        guard result == .success, let value = ref,
-              CFGetTypeID(value) == AXUIElementGetTypeID() else {
-            Self.log.error("kAXExtrasMenuBarAttribute err=\(result.rawValue)")
+        guard let menubar = AX.attribute(app, kAXExtrasMenuBarAttribute as String, as: AXUIElement.self) else {
+            Self.log.error("kAXExtrasMenuBarAttribute not available")
             throw VpnControlError.statusItemNotFound
         }
-        // swiftlint:disable:next force_cast
-        let menubar = value as! AXUIElement
         let kids = AX.children(menubar)
         Self.log.debug("extras menubar children=\(kids.count)")
         guard let item = kids.first else {
