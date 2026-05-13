@@ -134,19 +134,19 @@ struct LogReader {
         }
         guard !chunk.isEmpty else { return [] }
 
-        let combined = carry + chunk
+        carry.append(contentsOf: chunk)
 
         var states: [ConnectionState] = []
-        var lineStart = combined.startIndex
-        for i in combined.indices where combined[i] == 0x0A {
-            let lineData = combined[lineStart..<i]
+        var lineStart = carry.startIndex
+        for i in carry.indices where carry[i] == 0x0A {
+            let lineData = carry[lineStart..<i]
             let line = String(bytes: lineData, encoding: .isoLatin1) ?? ""
             if let state = parsePanGPSLine(line) {
                 states.append(state)
             }
-            lineStart = combined.index(after: i)
+            lineStart = carry.index(after: i)
         }
-        let tail = combined[lineStart...]
+        let tail = carry[lineStart...]
         // Guard against unbounded carry growth from an unterminated or malformed line.
         carry = tail.count > Self.maxCarryBytes ? Data() : Data(tail)
         return states
