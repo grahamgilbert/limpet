@@ -16,11 +16,13 @@ import Foundation
 /// not by unit tests.
 public final class GlobalProtectWindowProvider: WindowProvider, @unchecked Sendable {
     private static let bundleID = "com.paloaltonetworks.GlobalProtect.client"
+    private let verifier = GPCodeSignatureVerifier()
 
     public init() {}
 
     public func currentWindows() -> [PopupWindow] {
-        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).first else {
+        guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).first,
+              verifier.verify(app: app) else {
             return []
         }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)

@@ -29,6 +29,14 @@ public enum LoginItemStatus: Sendable, Equatable {
     case unknown
 }
 
+public protocol LoginItemNotifying: Sendable {
+    func notifyRequiresApproval()
+}
+
+public protocol SecurityNotifying: Sendable {
+    func notifyGlobalProtectSignatureInvalid()
+}
+
 public protocol LoginItemRegistering: Sendable {
     /// `true` for any state that means "the system intends to launch us at
     /// login": .enabled or .requiresApproval. Use `status` to distinguish.
