@@ -92,70 +92,31 @@ public final class AccessibilityVpnController: VpnControlling {
         throw VpnControlError.popoverDidNotOpen
     }
 
-    /// Try to press GP's status item. First attempt: walk the GP app's
-    /// own menu-bar extras. Fallback: scan the system-wide AX for any
-    /// menu-bar item whose title or description references GlobalProtect.
     private func clickStatusItem() throws {
-        if let item = findGPStatusItemInOwnMenuBar() {
-            Self.log.info("status item found via GP's own menubar")
-            if AX.press(item) { return }
-            Self.log.error("status item press failed (own menubar)")
+        guard let app = try? gpAppElement() else {
+            throw VpnControlError.statusItemNotFound
         }
-        if let item = findGPStatusItemSystemWide() {
-            Self.log.info("status item found via system-wide AX")
-            if AX.press(item) { return }
-            Self.log.error("status item press failed (system-wide)")
-        }
-        throw VpnControlError.statusItemNotFound
-    }
-
-    private func findGPStatusItemInOwnMenuBar() -> AXUIElement? {
-        guard let app = try? gpAppElement() else { return nil }
         var ref: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(
             app, kAXExtrasMenuBarAttribute as CFString, &ref
         )
         guard result == .success, let value = ref,
               CFGetTypeID(value) == AXUIElementGetTypeID() else {
-            Self.log.debug("kAXExtrasMenuBarAttribute err=\(result.rawValue)")
-            return nil
+            Self.log.error("kAXExtrasMenuBarAttribute err=\(result.rawValue)")
+            throw VpnControlError.statusItemNotFound
         }
         // swiftlint:disable:next force_cast
         let menubar = value as! AXUIElement
         let kids = AX.children(menubar)
         Self.log.debug("extras menubar children=\(kids.count)")
-        return kids.first
-    }
-
-    private func findGPStatusItemSystemWide() -> AXUIElement? {
-        // On macOS Tahoe, menu extras live under the Control Center process.
-        // Search there first to avoid a full depth-first walk of the entire
-        // accessibility tree. Fall back to system-wide if Control Center is
-        // absent or doesn't expose the item (e.g. non-Tahoe, unusual GP setup).
-        let isGPItem: (AXUIElement) -> Bool = { element in
-            let role = AX.role(element) ?? ""
-            guard role == "AXMenuExtra" || role == kAXMenuBarItemRole as String else {
-                return false
-            }
-            // On Tahoe, title and description are empty; AXHelp carries the state
-            // string (e.g. "GlobalProtect Connected"). Check all three.
-            let title = AX.title(element) ?? ""
-            let desc = AX.string(element, kAXDescriptionAttribute as String) ?? ""
-            let help = AX.string(element, kAXHelpAttribute as String) ?? ""
-            return title.localizedCaseInsensitiveContains("globalprotect")
-                || desc.localizedCaseInsensitiveContains("globalprotect")
-                || help.localizedCaseInsensitiveContains("globalprotect")
+        guard let item = kids.first else {
+            Self.log.error("extras menubar is empty")
+            throw VpnControlError.statusItemNotFound
         }
-        if let cc = NSRunningApplication.runningApplications(
-            withBundleIdentifier: "com.apple.controlcenter"
-        ).first {
-            Self.log.debug("findGPStatusItemSystemWide: searching Control Center (pid=\(cc.processIdentifier))")
-            if let item = AX.find(AXUIElementCreateApplication(cc.processIdentifier), where: isGPItem) {
-                return item
-            }
-            Self.log.debug("findGPStatusItemSystemWide: not found in Control Center, falling back to system-wide")
+        if !AX.press(item) {
+            Self.log.error("status item press failed")
+            throw VpnControlError.statusItemNotFound
         }
-        return AX.find(AXUIElementCreateSystemWide(), where: isGPItem)
     }
 
     private func pressButton(matching titles: [String]) throws {
