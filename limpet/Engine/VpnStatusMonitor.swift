@@ -89,6 +89,7 @@ struct LogReader {
     private var inode: UInt64?
     private(set) var isAccessible: Bool = false
     private var carry: Data = Data()
+    private static let maxCarryBytes = 65_000
 
     init(path: String) {
         self.path = path
@@ -147,7 +148,7 @@ struct LogReader {
         }
         let tail = combined[lineStart...]
         // Guard against unbounded carry growth from an unterminated or malformed line.
-        carry = tail.count > 65_000 ? Data() : Data(tail)
+        carry = tail.count > Self.maxCarryBytes ? Data() : Data(tail)
         return states
     }
 
@@ -156,7 +157,6 @@ struct LogReader {
         if currentInode != inode {
             do { try handle?.close() } catch { /* best-effort */ }
             handle = nil
-            inode = nil
             carry = Data()
             openFromBeginning()
         }
