@@ -98,55 +98,21 @@ public final class AccessibilityVpnController: VpnControlling {
         throw VpnControlError.popoverDidNotOpen
     }
 
-    /// Try to press GP's status item. First attempt: walk the GP app's
-    /// own menu-bar extras. Fallback: scan the system-wide AX for any
-    /// menu-bar item whose title or description references GlobalProtect.
-    private func clickStatusItem(appElement: AXUIElement, verifiedApp: NSRunningApplication) throws {
-        if let item = findGPStatusItemInOwnMenuBar(appElement: appElement) {
-            Self.log.info("status item found via GP's own menubar")
-            if AX.press(item) { return }
-            Self.log.error("status item press failed (own menubar)")
+    // GP's menu extra is only reachable via kAXExtrasMenuBarAttribute on the GP
+    // process itself — confirmed by live AX probe on Tahoe. It is not present in
+    // the Control Center subtree or via system-wide search.
+    private func clickStatusItem(appElement: AXUIElement, verifiedApp _: NSRunningApplication) throws {
+        guard let menubar = AX.attribute(appElement, kAXExtrasMenuBarAttribute as String, as: AXUIElement.self) else {
+            Self.log.error("kAXExtrasMenuBarAttribute not available")
+            throw VpnControlError.statusItemNotFound
         }
-        if let item = findGPStatusItemSystemWide(verifiedApp: verifiedApp) {
-            Self.log.info("status item found via system-wide AX")
-            if AX.press(item) { return }
-            Self.log.error("status item press failed (system-wide)")
+        guard let item = AX.children(menubar).first else {
+            Self.log.error("extras menubar is empty")
+            throw VpnControlError.statusItemNotFound
         }
-        throw VpnControlError.statusItemNotFound
-    }
-
-    private func findGPStatusItemInOwnMenuBar(appElement: AXUIElement) -> AXUIElement? {
-        var ref: CFTypeRef?
-        let result = AXUIElementCopyAttributeValue(
-            appElement, kAXExtrasMenuBarAttribute as CFString, &ref
-        )
-        guard result == .success, let value = ref,
-              CFGetTypeID(value) == AXUIElementGetTypeID() else {
-            Self.log.debug("kAXExtrasMenuBarAttribute err=\(result.rawValue)")
-            return nil
-        }
-        // swiftlint:disable:next force_cast
-        let menubar = value as! AXUIElement
-        let kids = AX.children(menubar)
-        Self.log.debug("extras menubar children=\(kids.count)")
-        return kids.first
-    }
-
-    private func findGPStatusItemSystemWide(verifiedApp _: NSRunningApplication) -> AXUIElement? {
-        // On Tahoe the menubar extras live under the Control Center process; system-wide
-        // search reaches them. Caller has already verified GP's code signature.
-        // We cannot filter by element PID here because Control Center hosts the element
-        // under its own PID.
-        let systemWide = AXUIElementCreateSystemWide()
-        return AX.find(systemWide) { element in
-            let role = AX.role(element) ?? ""
-            guard role == "AXMenuExtra" || role == kAXMenuBarItemRole as String else {
-                return false
-            }
-            let title = AX.title(element) ?? ""
-            let desc = AX.string(element, kAXDescriptionAttribute as String) ?? ""
-            return title.localizedCaseInsensitiveContains("globalprotect")
-                || desc.localizedCaseInsensitiveContains("globalprotect")
+        guard AX.press(item) else {
+            Self.log.error("status item press failed")
+            throw VpnControlError.statusItemNotFound
         }
     }
 

@@ -88,7 +88,7 @@ struct LogReader {
     private var handle: FileHandle?
     private var inode: UInt64?
     private(set) var isAccessible: Bool = false
-    private var carry: Data = Data()
+    private var carry: String = ""
     private static let maxCarryBytes = 65_000
 
     init(path: String) {
@@ -108,9 +108,7 @@ struct LogReader {
         // Scan only the last ~64 KB for efficiency on giant logs.
         let tailWindow = 64 * 1024
         let slice = data.suffix(tailWindow)
-        // isoLatin1 is total over all byte values, so the slice can never fail
-        // to decode. The lines we care about (PanGPS flag lines) are ASCII.
-        let text = String(bytes: slice, encoding: .isoLatin1) ?? ""
+        let text = String(bytes: slice, encoding: .utf8) ?? ""
         var lastState: ConnectionState?
         for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
             if let s = parsePanGPSLine(String(line)) {
@@ -134,22 +132,17 @@ struct LogReader {
         }
         guard !chunk.isEmpty else { return [] }
 
-        carry.append(contentsOf: chunk)
+        let raw = String(bytes: chunk, encoding: .utf8) ?? ""
+        let combined = carry + raw
 
-        var states: [ConnectionState] = []
-        var lineStart = carry.startIndex
-        for i in carry.indices where carry[i] == 0x0A {
-            let lineData = carry[lineStart..<i]
-            let line = String(bytes: lineData, encoding: .isoLatin1) ?? ""
-            if let state = parsePanGPSLine(line) {
-                states.append(state)
-            }
-            lineStart = carry.index(after: i)
-        }
-        let tail = carry[lineStart...]
-        // Guard against unbounded carry growth from an unterminated or malformed line.
-        carry = tail.count > Self.maxCarryBytes ? Data() : Data(tail)
-        return states
+        var parts = combined.split(separator: "\n", omittingEmptySubsequences: false)
+        // The last element is either empty (line ended with \n) or an incomplete
+        // line fragment to carry forward to the next read.
+        let tail = combined.hasSuffix("\n") ? "" : String(parts.removeLast())
+        // Guard against unbounded carry growth from a stuck unterminated line.
+        carry = tail.utf8.count > Self.maxCarryBytes ? "" : tail
+
+        return parts.compactMap { parsePanGPSLine(String($0)) }
     }
 
     private mutating func rotateIfNeeded() {
@@ -157,8 +150,8 @@ struct LogReader {
         if currentInode != inode {
             do { try handle?.close() } catch { /* best-effort */ }
             handle = nil
-            inode = nil  // must clear so a same-inode reappearance triggers reopen
-            carry = Data()
+            inode = nil
+            carry = ""
             openFromBeginning()
         }
     }
