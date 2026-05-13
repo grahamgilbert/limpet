@@ -137,10 +137,14 @@ public final class AccessibilityVpnController: VpnControlling {
             guard role == "AXMenuExtra" || role == kAXMenuBarItemRole as String else {
                 return false
             }
+            // On Tahoe, title and description are empty; AXHelp carries the state
+            // string (e.g. "GlobalProtect Connected"). Check all three.
             let title = AX.title(element) ?? ""
             let desc = AX.string(element, kAXDescriptionAttribute as String) ?? ""
+            let help = AX.string(element, kAXHelpAttribute as String) ?? ""
             return title.localizedCaseInsensitiveContains("globalprotect")
                 || desc.localizedCaseInsensitiveContains("globalprotect")
+                || help.localizedCaseInsensitiveContains("globalprotect")
         }
         if let cc = NSRunningApplication.runningApplications(
             withBundleIdentifier: "com.apple.controlcenter"
