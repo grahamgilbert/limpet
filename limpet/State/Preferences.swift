@@ -18,7 +18,7 @@ public final class Preferences {
     private let defaults: UserDefaults
     private let loginItem: LoginItemRegistering
     fileprivate nonisolated static let desiredOnKey = "limpet.desiredOn"
-    fileprivate nonisolated static let dismissPopupsKey = "limpet.dismissPopups"
+    public nonisolated static let dismissPopupsKey = "limpet.dismissPopups"
     fileprivate nonisolated static let hasLaunchedBeforeKey = "limpet.hasLaunchedBefore"
 
     public var desiredOn: Bool {
