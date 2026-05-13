@@ -108,7 +108,9 @@ struct LogReader {
         // Scan only the last ~64 KB for efficiency on giant logs.
         let tailWindow = 64 * 1024
         let slice = data.suffix(tailWindow)
-        let text = String(bytes: slice, encoding: .utf8) ?? ""
+        // isoLatin1 maps all 256 byte values, so this never fails on arbitrary
+        // log bytes. The flag lines we parse are ASCII, so encoding is irrelevant.
+        let text = String(bytes: slice, encoding: .isoLatin1) ?? ""
         var lastState: ConnectionState?
         for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
             if let s = parsePanGPSLine(String(line)) {
@@ -132,15 +134,18 @@ struct LogReader {
         }
         guard !chunk.isEmpty else { return [] }
 
-        let raw = String(bytes: chunk, encoding: .utf8) ?? ""
+        let raw = String(bytes: chunk, encoding: .isoLatin1) ?? ""
         let combined = carry + raw
 
         var parts = combined.split(separator: "\n", omittingEmptySubsequences: false)
         // The last element is either empty (line ended with \n) or an incomplete
         // line fragment to carry forward to the next read.
         let tail = combined.hasSuffix("\n") ? "" : String(parts.removeLast())
-        // Guard against unbounded carry growth from a stuck unterminated line.
-        carry = tail.utf8.count > Self.maxCarryBytes ? "" : tail
+        if tail.utf8.count > Self.maxCarryBytes {
+            carry = ""
+        } else {
+            carry = tail
+        }
 
         return parts.compactMap { parsePanGPSLine(String($0)) }
     }

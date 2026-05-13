@@ -84,7 +84,7 @@ public final class AccessibilityVpnController: VpnControlling {
             return appElement
         }
         Self.log.info("popover closed; opening via status item")
-        try clickStatusItem(appElement: appElement, verifiedApp: app)
+        try clickStatusItem(appElement: appElement)
         for attempt in 0..<20 {
             try? await Task.sleep(for: .milliseconds(100))
             let windows = AX.windows(appElement)
@@ -101,7 +101,7 @@ public final class AccessibilityVpnController: VpnControlling {
     // GP's menu extra is only reachable via kAXExtrasMenuBarAttribute on the GP
     // process itself — confirmed by live AX probe on Tahoe. It is not present in
     // the Control Center subtree or via system-wide search.
-    private func clickStatusItem(appElement: AXUIElement, verifiedApp _: NSRunningApplication) throws {
+    private func clickStatusItem(appElement: AXUIElement) throws {
         guard let menubar = AX.attribute(appElement, kAXExtrasMenuBarAttribute as String, as: AXUIElement.self) else {
             Self.log.error("kAXExtrasMenuBarAttribute not available")
             throw VpnControlError.statusItemNotFound
