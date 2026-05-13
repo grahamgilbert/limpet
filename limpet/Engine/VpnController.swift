@@ -42,23 +42,23 @@ public final class AccessibilityVpnController: VpnControlling {
 
     public func connect() async throws {
         Self.log.info("connect: requested")
-        try await openPopoverIfNeeded()
-        try pressButton(matching: ["Connect", "Enable", "Reconnect"])
+        let appElement = try await openPopoverIfNeeded()
+        try pressButton(matching: ["Connect", "Enable", "Reconnect"], in: appElement)
         Self.log.info("connect: button pressed")
     }
 
     public func disconnect() async throws {
         Self.log.info("disconnect: requested")
-        try await openPopoverIfNeeded()
-        try pressButton(matching: ["Disconnect", "Disable"])
+        let appElement = try await openPopoverIfNeeded()
+        try pressButton(matching: ["Disconnect", "Disable"], in: appElement)
         Self.log.info("disconnect: button pressed")
         try? await Task.sleep(for: .milliseconds(700))
-        fillDisconnectCommentAndConfirm()
+        fillDisconnectCommentAndConfirm(in: appElement)
     }
 
     // MARK: - Private
 
-    private func gpApp() throws -> NSRunningApplication {
+    private func verifiedGPApp() throws -> NSRunningApplication {
         guard AX.isProcessTrusted(prompt: false) else {
             Self.log.error("Accessibility is not trusted")
             throw VpnControlError.accessibilityNotTrusted
@@ -74,32 +74,24 @@ public final class AccessibilityVpnController: VpnControlling {
         return app
     }
 
-    private func gpAppElement() throws -> AXUIElement {
-        AXUIElementCreateApplication(try gpApp().processIdentifier)
-    }
-
-    private func popoverIsOpen() -> Bool {
-        guard let app = try? gpAppElement() else { return false }
-        let windows = AX.windows(app)
-        Self.log.debug("popoverIsOpen: \(windows.count) GP windows")
-        return !windows.isEmpty
-    }
-
-    private func openPopoverIfNeeded() async throws {
-        // Check signature first so the error propagates; popoverIsOpen() uses try? and would
-        // silently swallow signatureVerificationFailed.
-        let verifiedApp = try gpApp()
-        if !AX.windows(AXUIElementCreateApplication(verifiedApp.processIdentifier)).isEmpty {
+    /// Resolves and verifies GP once, then opens the popover if needed.
+    /// Returns the AXUIElement for the GP app, ready for all subsequent AX calls.
+    private func openPopoverIfNeeded() async throws -> AXUIElement {
+        let app = try verifiedGPApp()
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        if !AX.windows(appElement).isEmpty {
             Self.log.info("popover already open")
-            return
+            return appElement
         }
         Self.log.info("popover closed; opening via status item")
-        try clickStatusItem()
+        try clickStatusItem(appElement: appElement, verifiedApp: app)
         for attempt in 0..<20 {
             try? await Task.sleep(for: .milliseconds(100))
-            if popoverIsOpen() {
+            let windows = AX.windows(appElement)
+            Self.log.debug("popoverIsOpen: \(windows.count) GP windows")
+            if !windows.isEmpty {
                 Self.log.info("popover opened after \(attempt + 1) polls")
-                return
+                return appElement
             }
         }
         Self.log.error("popover did not open within 2s")
@@ -109,13 +101,13 @@ public final class AccessibilityVpnController: VpnControlling {
     /// Try to press GP's status item. First attempt: walk the GP app's
     /// own menu-bar extras. Fallback: scan the system-wide AX for any
     /// menu-bar item whose title or description references GlobalProtect.
-    private func clickStatusItem() throws {
-        if let item = findGPStatusItemInOwnMenuBar() {
+    private func clickStatusItem(appElement: AXUIElement, verifiedApp: NSRunningApplication) throws {
+        if let item = findGPStatusItemInOwnMenuBar(appElement: appElement) {
             Self.log.info("status item found via GP's own menubar")
             if AX.press(item) { return }
             Self.log.error("status item press failed (own menubar)")
         }
-        if let item = findGPStatusItemSystemWide() {
+        if let item = findGPStatusItemSystemWide(verifiedApp: verifiedApp) {
             Self.log.info("status item found via system-wide AX")
             if AX.press(item) { return }
             Self.log.error("status item press failed (system-wide)")
@@ -123,11 +115,10 @@ public final class AccessibilityVpnController: VpnControlling {
         throw VpnControlError.statusItemNotFound
     }
 
-    private func findGPStatusItemInOwnMenuBar() -> AXUIElement? {
-        guard let app = try? gpAppElement() else { return nil }
+    private func findGPStatusItemInOwnMenuBar(appElement: AXUIElement) -> AXUIElement? {
         var ref: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(
-            app, kAXExtrasMenuBarAttribute as CFString, &ref
+            appElement, kAXExtrasMenuBarAttribute as CFString, &ref
         )
         guard result == .success, let value = ref,
               CFGetTypeID(value) == AXUIElementGetTypeID() else {
@@ -141,16 +132,11 @@ public final class AccessibilityVpnController: VpnControlling {
         return kids.first
     }
 
-    private func findGPStatusItemSystemWide() -> AXUIElement? {
+    private func findGPStatusItemSystemWide(verifiedApp _: NSRunningApplication) -> AXUIElement? {
         // On Tahoe the menubar extras live under the Control Center process; system-wide
-        // search reaches them. Guard against confused-deputy: verify GP is genuine before
-        // acting on any element whose title/description it controls. We cannot filter by
-        // the element's PID here because Control Center hosts the element under its own PID.
-        guard let gpApp = NSRunningApplication.runningApplications(withBundleIdentifier: Self.bundleID).first,
-              verifier.verify(app: gpApp) else {
-            Self.log.error("system-wide fallback: GP not running or signature check failed")
-            return nil
-        }
+        // search reaches them. Caller has already verified GP's code signature.
+        // We cannot filter by element PID here because Control Center hosts the element
+        // under its own PID.
         let systemWide = AXUIElementCreateSystemWide()
         return AX.find(systemWide) { element in
             let role = AX.role(element) ?? ""
@@ -164,9 +150,8 @@ public final class AccessibilityVpnController: VpnControlling {
         }
     }
 
-    private func pressButton(matching titles: [String]) throws {
-        let app = try gpAppElement()
-        for window in AX.windows(app) {
+    private func pressButton(matching titles: [String], in appElement: AXUIElement) throws {
+        for window in AX.windows(appElement) {
             if let button = AX.find(window, where: { element in
                 guard AX.role(element) == kAXButtonRole as String else { return false }
                 guard let title = AX.title(element) else { return false }
@@ -180,9 +165,8 @@ public final class AccessibilityVpnController: VpnControlling {
         throw VpnControlError.buttonNotFound(titles.joined(separator: " / "))
     }
 
-    private func fillDisconnectCommentAndConfirm() {
-        guard let app = try? gpAppElement() else { return }
-        for window in AX.windows(app) {
+    private func fillDisconnectCommentAndConfirm(in appElement: AXUIElement) {
+        for window in AX.windows(appElement) {
             if let textArea = AX.find(window, where: { element in
                 let role = AX.role(element)
                 return role == kAXTextAreaRole as String || role == kAXTextFieldRole as String

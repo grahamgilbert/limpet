@@ -35,7 +35,7 @@ final class GPCodeSignatureVerifier {
         if let cached = verified[pid], cached === app, !cached.isTerminated {
             return true
         }
-        verified.removeValue(forKey: pid)
+        verified[pid] = nil
         guard let req = Self.requirement else { return false }
         var codeRef: SecCode?
         let attrs = [kSecGuestAttributePid: pid] as CFDictionary

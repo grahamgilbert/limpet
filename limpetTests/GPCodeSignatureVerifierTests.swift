@@ -34,21 +34,15 @@ struct GPCodeSignatureVerifierTests {
         #expect(GPCodeSignatureVerifier().verify(app: self_) == false)
     }
 
-    @Test("terminated app returns false and does not stay cached")
-    func terminatedAppReturnsFalse() {
-        // Simulate a terminated app by using a known-running process and then checking
-        // that isTerminated=true bypasses the cache. We can't easily make a real app
-        // terminate mid-test, so verify the guard branch directly: if the cached app
-        // is terminated the result must be false.
-        // We exercise the non-terminated path via testRunnerFailsGPRequirement above;
-        // the terminated guard is covered by the implementation contract of isTerminated.
-        // This test simply confirms verify returns false for the test runner on a fresh verifier.
+    @Test("cache hit for a rejected app still returns false")
+    func cacheHitForRejectedAppReturnsFalse() {
+        // A rejected app must not be cached, so repeated calls must both return false.
         guard let self_ = NSRunningApplication.runningApplications(
             withBundleIdentifier: Bundle.main.bundleIdentifier ?? ""
         ).first else { return }
         let v = GPCodeSignatureVerifier()
         let first = v.verify(app: self_)
-        let second = v.verify(app: self_)   // exercises cache hit path
+        let second = v.verify(app: self_)   // exercises the non-cached rejection path
         #expect(first == false)
         #expect(second == false)
     }
