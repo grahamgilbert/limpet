@@ -128,21 +128,30 @@ public final class AccessibilityVpnController: VpnControlling {
     }
 
     private func findGPStatusItemSystemWide() -> AXUIElement? {
-        // System-wide AX root, walk its menubars looking for an item whose
-        // attributes mention GlobalProtect. On Tahoe the menubar extras live
-        // under the Control Center process; system-wide search reaches them.
-        let systemWide = AXUIElementCreateSystemWide()
-        return AX.find(systemWide) { element in
+        // On macOS Tahoe, menu extras live under the Control Center process.
+        // Search there first to avoid a full depth-first walk of the entire
+        // accessibility tree. Fall back to system-wide if Control Center is
+        // absent or doesn't expose the item (e.g. non-Tahoe, unusual GP setup).
+        let isGPItem: (AXUIElement) -> Bool = { element in
             let role = AX.role(element) ?? ""
             guard role == "AXMenuExtra" || role == kAXMenuBarItemRole as String else {
                 return false
             }
             let title = AX.title(element) ?? ""
             let desc = AX.string(element, kAXDescriptionAttribute as String) ?? ""
-            let match = title.localizedCaseInsensitiveContains("globalprotect")
+            return title.localizedCaseInsensitiveContains("globalprotect")
                 || desc.localizedCaseInsensitiveContains("globalprotect")
-            return match
         }
+        if let cc = NSRunningApplication.runningApplications(
+            withBundleIdentifier: "com.apple.controlcenter"
+        ).first {
+            Self.log.debug("findGPStatusItemSystemWide: searching Control Center (pid=\(cc.processIdentifier))")
+            if let item = AX.find(AXUIElementCreateApplication(cc.processIdentifier), where: isGPItem) {
+                return item
+            }
+            Self.log.debug("findGPStatusItemSystemWide: not found in Control Center, falling back to system-wide")
+        }
+        return AX.find(AXUIElementCreateSystemWide(), where: isGPItem)
     }
 
     private func pressButton(matching titles: [String]) throws {
