@@ -2,6 +2,7 @@
 // Version 2.0. See LICENSE in the repo root for details.
 
 import Foundation
+import OSLog
 
 /// One snapshot of a candidate "GlobalProtect" alert window: its title, the
 /// text shown to the user, and a closure that presses its primary button.
@@ -40,6 +41,7 @@ public func shouldDismissPopup(title: String?, body: String?) -> Bool {
 /// `WindowProvider`. The real `WindowProvider` walks the live GP AX tree;
 /// tests inject a fake provider with canned data.
 public final class PopupDismisserImpl: PopupDismissing, @unchecked Sendable {
+    private static let log = Logger(subsystem: "com.grahamgilbert.limpet", category: "popup")
     private let provider: WindowProvider
 
     public init(provider: WindowProvider) {
@@ -51,8 +53,12 @@ public final class PopupDismisserImpl: PopupDismissing, @unchecked Sendable {
         var dismissed = false
         for window in provider.currentWindows()
             where shouldDismissPopup(title: window.title, body: window.bodyText) {
+            let bodyPreview = String((window.bodyText ?? "").prefix(160))
             if window.pressPrimary() {
                 dismissed = true
+                Self.log.info("dismissed GlobalProtect popup title=\(window.title ?? "<nil>", privacy: .public) body=\(bodyPreview, privacy: .public)")
+            } else {
+                Self.log.error("failed to dismiss GlobalProtect popup title=\(window.title ?? "<nil>", privacy: .public) body=\(bodyPreview, privacy: .public)")
             }
         }
         return dismissed
@@ -64,12 +70,19 @@ public final class PopupDismisserLoop: @unchecked Sendable {
     private let dismisser: PopupDismissing
     private let time: TimeSource
     private let interval: Duration
+    private let isEnabled: @Sendable () -> Bool
     private var task: Task<Void, Never>?
 
-    public init(dismisser: PopupDismissing, time: TimeSource = SystemTimeSource(), interval: Duration = .seconds(1)) {
+    public init(
+        dismisser: PopupDismissing,
+        time: TimeSource = SystemTimeSource(),
+        interval: Duration = .seconds(1),
+        isEnabled: @escaping @Sendable () -> Bool = { true }
+    ) {
         self.dismisser = dismisser
         self.time = time
         self.interval = interval
+        self.isEnabled = isEnabled
     }
 
     public func start() {
@@ -77,9 +90,12 @@ public final class PopupDismisserLoop: @unchecked Sendable {
         let dismisser = self.dismisser
         let time = self.time
         let interval = self.interval
+        let isEnabled = self.isEnabled
         task = Task.detached {
             while !Task.isCancelled {
-                _ = await dismisser.tick()
+                if isEnabled() {
+                    _ = await dismisser.tick()
+                }
                 do {
                     try await time.sleep(for: interval)
                 } catch {
