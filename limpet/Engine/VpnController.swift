@@ -93,20 +93,16 @@ public final class AccessibilityVpnController: VpnControlling {
     }
 
     private func clickStatusItem() throws {
-        guard let app = try? gpAppElement() else {
-            throw VpnControlError.statusItemNotFound
-        }
+        let app = try gpAppElement()
         guard let menubar = AX.attribute(app, kAXExtrasMenuBarAttribute as String, as: AXUIElement.self) else {
             Self.log.error("kAXExtrasMenuBarAttribute not available")
             throw VpnControlError.statusItemNotFound
         }
-        let kids = AX.children(menubar)
-        Self.log.debug("extras menubar children=\(kids.count)")
-        guard let item = kids.first else {
+        guard let item = AX.children(menubar).first else {
             Self.log.error("extras menubar is empty")
             throw VpnControlError.statusItemNotFound
         }
-        if !AX.press(item) {
+        guard AX.press(item) else {
             Self.log.error("status item press failed")
             throw VpnControlError.statusItemNotFound
         }
