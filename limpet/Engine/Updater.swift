@@ -13,7 +13,11 @@ private enum AppcastURL {
 // Because Sparkle re-invokes feedURLString per check, the delegate closure
 // makes feed selection live without restarting the updater.
 private final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
-    var wantsPrereleases: @Sendable () -> Bool = { false }
+    let wantsPrereleases: @Sendable () -> Bool
+
+    init(wantsPrereleases: @escaping @Sendable () -> Bool) {
+        self.wantsPrereleases = wantsPrereleases
+    }
 
     func feedURLString(for updater: SPUUpdater) -> String? {
         wantsPrereleases() ? AppcastURL.prerelease : AppcastURL.stable
@@ -31,9 +35,8 @@ private final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
 @Observable
 public final class Updater {
     private let controller: SPUStandardUpdaterController
-    private let delegate = UpdaterDelegate()
-
-    // Sparkle stores its own preferences under this key in UserDefaults.
+    // Sparkle holds its delegate weakly, so we must retain it here.
+    private let delegate: UpdaterDelegate
     private static let sparkleAutoChecksKey = "SUEnableAutomaticChecks"
 
     /// Indirection so SwiftUI re-renders when Sparkle's defaults change.
@@ -44,7 +47,8 @@ public final class Updater {
     }
 
     public init(wantsPrereleases: @escaping @Sendable () -> Bool = { false }) {
-        delegate.wantsPrereleases = wantsPrereleases
+        let delegate = UpdaterDelegate(wantsPrereleases: wantsPrereleases)
+        self.delegate = delegate
         self.controller = SPUStandardUpdaterController(
             startingUpdater: true,
             updaterDelegate: delegate,
@@ -57,7 +61,6 @@ public final class Updater {
             controller.updater.automaticallyChecksForUpdates = true
         }
         self.automaticallyChecksForUpdates = controller.updater.automaticallyChecksForUpdates
-        // Daily check cadence.
         self.controller.updater.updateCheckInterval = 86_400
     }
 

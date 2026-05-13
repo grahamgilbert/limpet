@@ -23,8 +23,7 @@ struct limpetApp: App {
         let preferences = Preferences()
         let controller = AccessibilityVpnController()
         let monitor = LogTailingStatusMonitor()
-        let prereleasesKey = Preferences.installPrereleasesKey
-        let updater = Updater(wantsPrereleases: { UserDefaults.standard.bool(forKey: prereleasesKey) })
+        let updater = Updater(wantsPrereleases: { UserDefaults.standard.bool(forKey: Preferences.installPrereleasesKey) })
 
         let watchdog = Watchdog(
             controller: controller,
