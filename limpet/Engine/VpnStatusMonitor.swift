@@ -88,7 +88,7 @@ struct LogReader {
     private var handle: FileHandle?
     private var inode: UInt64?
     private(set) var isAccessible: Bool = false
-    private var carry: String = ""
+    private var carry: Data = Data()
 
     init(path: String) {
         self.path = path
@@ -107,7 +107,9 @@ struct LogReader {
         // Scan only the last ~64 KB for efficiency on giant logs.
         let tailWindow = 64 * 1024
         let slice = data.suffix(tailWindow)
-        let text = String(bytes: slice, encoding: .utf8) ?? ""
+        // isoLatin1 is total over all byte values, so the slice can never fail
+        // to decode. The lines we care about (PanGPS flag lines) are ASCII.
+        let text = String(bytes: slice, encoding: .isoLatin1) ?? ""
         var lastState: ConnectionState?
         for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
             if let s = parsePanGPSLine(String(line)) {
@@ -131,23 +133,23 @@ struct LogReader {
         }
         guard !chunk.isEmpty else { return [] }
 
-        let raw = String(bytes: chunk, encoding: .utf8) ?? ""
-        let combined = carry + raw
+        let combined = carry + chunk
 
         var states: [ConnectionState] = []
         var lineStart = combined.startIndex
-        var index = combined.startIndex
-        while index < combined.endIndex {
-            if combined[index] == "\n" {
-                let line = combined[lineStart..<index]
-                if let state = parsePanGPSLine(String(line)) {
+        for i in combined.indices {
+            if combined[i] == 0x0A {
+                let lineData = combined[lineStart..<i]
+                let line = String(bytes: lineData, encoding: .isoLatin1) ?? ""
+                if let state = parsePanGPSLine(line) {
                     states.append(state)
                 }
-                lineStart = combined.index(after: index)
+                lineStart = combined.index(after: i)
             }
-            index = combined.index(after: index)
         }
-        carry = String(combined[lineStart...])
+        let tail = combined[lineStart...]
+        // Guard against unbounded carry growth from an unterminated or malformed line.
+        carry = tail.count > 65_000 ? Data() : Data(tail)
         return states
     }
 
@@ -157,7 +159,7 @@ struct LogReader {
             do { try handle?.close() } catch { /* best-effort */ }
             handle = nil
             inode = nil
-            carry = ""
+            carry = Data()
             openFromBeginning()
         }
     }

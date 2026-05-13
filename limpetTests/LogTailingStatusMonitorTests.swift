@@ -91,6 +91,51 @@ struct LogTailingStatusMonitorTests {
         let first = try await firstValue(from: monitor.stream, timeout: .seconds(1))
         #expect(first == .unknown)
     }
+
+    // MARK: LogReader unit tests
+
+    @Test("line split across two reads is parsed correctly")
+    func splitLineAcrossReads() throws {
+        let path = try makeTempLog(contents: "")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        var reader = LogReader(path: path)
+
+        // Write the first half of a state line (no newline yet).
+        let fullLine = " m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is 1, IsVPNInRetry() is 0.\n"
+        let splitAt = fullLine.utf8.count / 2
+        let utf8 = fullLine.utf8
+        let part1 = Data(utf8.prefix(splitAt))
+        let part2 = Data(utf8.dropFirst(splitAt))
+
+        try writeRaw(to: path, data: part1)
+        let states1 = reader.consumeAppended()
+        #expect(states1.isEmpty, "no complete line yet — nothing should be emitted")
+
+        try writeRaw(to: path, data: part2)
+        let states2 = reader.consumeAppended()
+        #expect(states2 == [.connected], "complete line now spans both reads")
+    }
+
+    @Test("oversized carry is dropped and sync resumes at next newline")
+    func carryCapDropsOversizedBuffer() throws {
+        let path = try makeTempLog(contents: "")
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        var reader = LogReader(path: path)
+
+        // Write 70 KB of garbage with no newline — should bloat carry past 65 000 bytes.
+        let junk = Data(repeating: UInt8(ascii: "x"), count: 70_000)
+        try writeRaw(to: path, data: junk)
+        let states1 = reader.consumeAppended()
+        #expect(states1.isEmpty)
+
+        // Now write a valid state line — reader must re-sync and parse it.
+        let stateLine = " m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is 1, IsVPNInRetry() is 0.\n"
+        try writeRaw(to: path, data: Data(stateLine.utf8))
+        let states2 = reader.consumeAppended()
+        #expect(states2 == [.connected], "reader re-syncs after carry is dropped")
+    }
 }
 
 // MARK: - helpers
@@ -102,14 +147,16 @@ private func makeTempLog(contents: String) throws -> String {
     return tmp.path
 }
 
-private func append(to path: String, _ contents: String) throws {
+private func writeRaw(to path: String, data: Data) throws {
     let url = URL(fileURLWithPath: path)
     let handle = try FileHandle(forWritingTo: url)
     try handle.seekToEnd()
-    if let data = contents.data(using: .utf8) {
-        try handle.write(contentsOf: data)
-    }
+    try handle.write(contentsOf: data)
     try handle.close()
+}
+
+private func append(to path: String, _ contents: String) throws {
+    try writeRaw(to: path, data: Data(contents.utf8))
 }
 
 private func firstValue<T: Sendable>(from stream: AsyncStream<T>, timeout: Duration) async throws -> T? {
