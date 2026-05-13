@@ -157,6 +157,7 @@ struct LogReader {
         if currentInode != inode {
             do { try handle?.close() } catch { /* best-effort */ }
             handle = nil
+            inode = nil  // must clear so a same-inode reappearance triggers reopen
             carry = Data()
             openFromBeginning()
         }
