@@ -20,15 +20,17 @@ struct limpetApp: App {
     @MainActor
     init() {
         let appState = AppState()
-        let preferences = Preferences()
+        let notifier = SystemLoginItemNotifier()
+        let preferences = Preferences(notifier: notifier)
         let controller = AccessibilityVpnController()
         let monitor = LogTailingStatusMonitor()
-        let updater = Updater()
+        let updater = Updater(wantsPrereleases: { UserDefaults.standard.bool(forKey: Preferences.installPrereleasesKey) })
 
         let watchdog = Watchdog(
             controller: controller,
             stateSink: appState,
-            desired: preferences.desiredStateProxy()
+            desired: preferences.desiredStateProxy(),
+            notifier: notifier
         )
         let stream = monitor.stream
         let dog = watchdog

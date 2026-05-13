@@ -48,6 +48,8 @@
 		A1020103000000000000A002 /* pangps_disabled.txt in Resources */ = {isa = PBXBuildFile; fileRef = A1020103000000000000B002 /* pangps_disabled.txt */; };
 		A1020104000000000000A002 /* pangps_mixed_run.txt in Resources */ = {isa = PBXBuildFile; fileRef = A1020104000000000000B002 /* pangps_mixed_run.txt */; };
 		A1030001000000000000A001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A1040001000000000000B001 /* Sparkle */; };
+		A101001F000000000000A001 /* GPCodeSignatureVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101001F000000000000B001 /* GPCodeSignatureVerifier.swift */; };
+		A102000F000000000000A002 /* GPCodeSignatureVerifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A102000F000000000000B002 /* GPCodeSignatureVerifierTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -85,6 +87,7 @@
 		A1010012000000000000B001 /* limpet.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = limpet.entitlements; sourceTree = "<group>"; };
 		A1010013000000000000B001 /* limpet.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = limpet.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A101001A000000000000B001 /* GlobalProtectWindowProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalProtectWindowProvider.swift; sourceTree = "<group>"; };
+		A101001F000000000000B001 /* GPCodeSignatureVerifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPCodeSignatureVerifier.swift; sourceTree = "<group>"; };
 		A1020001000000000000B002 /* ParsePanGPSLineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsePanGPSLineTests.swift; sourceTree = "<group>"; };
 		A1020002000000000000B002 /* LogTailingStatusMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogTailingStatusMonitorTests.swift; sourceTree = "<group>"; };
 		A1020003000000000000B002 /* WatchdogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchdogTests.swift; sourceTree = "<group>"; };
@@ -99,6 +102,7 @@
 		A102000C000000000000B002 /* FakeLoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeLoginItem.swift; sourceTree = "<group>"; };
 		A102000E000000000000B002 /* RecordingLoginItemNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLoginItemNotifier.swift; sourceTree = "<group>"; };
 		A102000D000000000000B002 /* AsyncSafeLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncSafeLock.swift; sourceTree = "<group>"; };
+		A102000F000000000000B002 /* GPCodeSignatureVerifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPCodeSignatureVerifierTests.swift; sourceTree = "<group>"; };
 		A1020100000000000000B002 /* pangps_connected.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pangps_connected.txt; sourceTree = "<group>"; };
 		A1020101000000000000B002 /* pangps_disconnected.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pangps_disconnected.txt; sourceTree = "<group>"; };
 		A1020102000000000000B002 /* pangps_retry.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pangps_retry.txt; sourceTree = "<group>"; };
@@ -159,6 +163,7 @@
 				A1020005000000000000B002 /* AppStateTests.swift */,
 				A1020006000000000000B002 /* PreferencesTests.swift */,
 				A1020007000000000000B002 /* StatusIconTests.swift */,
+				A102000F000000000000B002 /* GPCodeSignatureVerifierTests.swift */,
 				A1G00020000000000000F020 /* Fakes */,
 				A1G00021000000000000F021 /* Fixtures */,
 			);
@@ -183,6 +188,7 @@
 				A1010004000000000000B001 /* VpnStatusMonitor.swift */,
 				A1010005000000000000B001 /* AXHelpers.swift */,
 				A1010006000000000000B001 /* PopupDismisser.swift */,
+				A101001F000000000000B001 /* GPCodeSignatureVerifier.swift */,
 				A101001A000000000000B001 /* GlobalProtectWindowProvider.swift */,
 				A1010007000000000000B001 /* VpnController.swift */,
 				A1010008000000000000B001 /* Watchdog.swift */,
@@ -391,6 +397,7 @@
 				A1010004000000000000A001 /* VpnStatusMonitor.swift in Sources */,
 				A1010005000000000000A001 /* AXHelpers.swift in Sources */,
 				A1010006000000000000A001 /* PopupDismisser.swift in Sources */,
+				A101001F000000000000A001 /* GPCodeSignatureVerifier.swift in Sources */,
 				A101001A000000000000A001 /* GlobalProtectWindowProvider.swift in Sources */,
 				A1010007000000000000A001 /* VpnController.swift in Sources */,
 				A1010008000000000000A001 /* Watchdog.swift in Sources */,
@@ -425,6 +432,7 @@
 				A102000C000000000000A002 /* FakeLoginItem.swift in Sources */,
 				A102000E000000000000A002 /* RecordingLoginItemNotifier.swift in Sources */,
 				A102000D000000000000A002 /* AsyncSafeLock.swift in Sources */,
+				A102000F000000000000A002 /* GPCodeSignatureVerifierTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -707,7 +715,7 @@
 			repositoryURL = "https://github.com/sparkle-project/Sparkle.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 2.6.0;
+				minimumVersion = 2.7.3;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

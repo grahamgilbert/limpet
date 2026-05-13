@@ -6,7 +6,6 @@ build/
 *.xcuserstate
 *.swp
 .swiftpm/
-Package.resolved
 .claude/
 __pycache__/
 *.pyc

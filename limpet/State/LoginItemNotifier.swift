@@ -4,29 +4,35 @@
 import Foundation
 import UserNotifications
 
-/// Surfaces login-item state transitions as user-visible notifications.
-/// Injectable so tests don't fire real system notifications.
-public protocol LoginItemNotifying: Sendable {
-    func notifyRequiresApproval()
-}
-
 /// Real implementation backed by `UNUserNotificationCenter`. Authorization is
 /// requested lazily on first use — if denied, the call silently no-ops.
-public struct SystemLoginItemNotifier: LoginItemNotifying {
+public struct SystemLoginItemNotifier: LoginItemNotifying, SecurityNotifying {
     public init() {}
 
     public func notifyRequiresApproval() {
+        post(
+            identifier: "limpet.loginItemRequiresApproval",
+            title: "limpet needs approval",
+            body: "Open System Settings → General → Login Items & Extensions and turn limpet on so it can launch at login."
+        )
+    }
+
+    public func notifyGlobalProtectSignatureInvalid() {
+        post(
+            identifier: "limpet.globalProtectSignatureInvalid",
+            title: "Security warning — GlobalProtect",
+            body: "A process claiming to be GlobalProtect failed code-signature verification. limpet has stopped controlling it. Check your system for unauthorized software."
+        )
+    }
+
+    private func post(identifier: String, title: String, body: String) {
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert]) { granted, _ in
             guard granted else { return }
             let content = UNMutableNotificationContent()
-            content.title = "limpet needs approval"
-            content.body = "Open System Settings → General → Login Items & Extensions and turn limpet on so it can launch at login."
-            let request = UNNotificationRequest(
-                identifier: "limpet.loginItemRequiresApproval",
-                content: content,
-                trigger: nil
-            )
+            content.title = title
+            content.body = body
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
             center.add(request)
         }
     }

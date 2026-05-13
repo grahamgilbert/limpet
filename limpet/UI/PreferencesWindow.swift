@@ -48,6 +48,11 @@ struct PreferencesWindow: View {
 
             Section("Updates") {
                 Toggle("Automatically check for updates", isOn: $updater.automaticallyChecksForUpdates)
+                Toggle("Install prerelease versions", isOn: $preferences.installPrereleases)
+                Text("Prerelease builds may be unstable. They receive updates before the stable channel.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 HStack {
                     Button("Check Now") {
                         updater.checkForUpdates()

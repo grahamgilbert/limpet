@@ -142,8 +142,7 @@ struct LogReader {
         // Guard against unbounded carry growth from a stuck unterminated line.
         carry = tail.utf8.count > Self.maxCarryBytes ? "" : tail
 
-        let states = parts.compactMap { parsePanGPSLine(String($0)) }
-        return states
+        return parts.compactMap { parsePanGPSLine(String($0)) }
     }
 
     private mutating func rotateIfNeeded() {
