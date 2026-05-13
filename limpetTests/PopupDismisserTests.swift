@@ -1,7 +1,6 @@
 // Copyright 2026 Graham Gilbert. Licensed under the Apache License,
 // Version 2.0. See LICENSE in the repo root for details.
 
-import Foundation
 import Testing
 @testable import limpet
 
@@ -110,21 +109,18 @@ struct PopupDismisserLoopTests {
     @Test("start/stop: tick is called while running, not after stop")
     func startStop() async throws {
         let counter = TickCounter()
-        let time = FakeTimeSource()
         let loop = PopupDismisserLoop(
             dismisser: counter,
-            time: time,
+            time: SystemTimeSource(),
             fallbackInterval: .milliseconds(10)
         )
         loop.start()
-        // Let the loop run a few ticks via real short sleeps.
         try await Task.sleep(for: .milliseconds(80))
         let countWhileRunning = counter.count
         #expect(countWhileRunning > 0)
 
         loop.stop()
         try await Task.sleep(for: .milliseconds(30))
-        // No new ticks after stop.
         #expect(counter.count == countWhileRunning)
     }
 
@@ -144,13 +140,14 @@ struct PopupDismisserLoopTests {
     }
 
     @Test("stop is idempotent")
-    func stopIdempotent() {
+    func stopIdempotent() async throws {
         let loop = PopupDismisserLoop(
             dismisser: TickCounter(),
-            time: FakeTimeSource(),
-            fallbackInterval: .seconds(1)
+            time: SystemTimeSource(),
+            fallbackInterval: .milliseconds(50)
         )
         loop.start()
+        try await Task.sleep(for: .milliseconds(20))
         loop.stop()
         loop.stop() // should not crash
     }
