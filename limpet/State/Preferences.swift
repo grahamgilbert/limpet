@@ -34,7 +34,8 @@ public final class Preferences {
     }
 
     /// When true, Sparkle checks the prerelease appcast feed instead of the
-    /// stable one. Takes effect at the next update check.
+    /// stable one. Takes effect at the next update check. Intentionally
+    /// defaults to false (opt-in), so no explicit seed is needed in init.
     public var installPrereleases: Bool {
         didSet { defaults.set(installPrereleases, forKey: Self.installPrereleasesKey) }
     }
