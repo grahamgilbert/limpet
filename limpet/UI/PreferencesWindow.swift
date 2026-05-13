@@ -13,6 +13,13 @@ struct PreferencesWindow: View {
             Section("General") {
                 Toggle("Start at Login", isOn: $preferences.startAtLogin)
 
+                Toggle("Automatically dismiss GlobalProtect popups", isOn: $preferences.dismissPopups)
+
+                Text("Disable this while debugging new GlobalProtect dialogs or validating popup matching behavior.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 if preferences.loginItemNeedsAttention {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")

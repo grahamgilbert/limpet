@@ -37,7 +37,12 @@ struct limpetApp: App {
         }
 
         let dismisser = PopupDismisserImpl(provider: GlobalProtectWindowProvider())
-        let loop = PopupDismisserLoop(dismisser: dismisser)
+        let loop = PopupDismisserLoop(
+            dismisser: dismisser,
+            isEnabled: {
+                UserDefaults.standard.bool(forKey: Preferences.dismissPopupsKey)
+            }
+        )
         loop.start()
 
         self._appState = State(initialValue: appState)
