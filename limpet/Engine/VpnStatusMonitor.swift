@@ -137,15 +137,13 @@ struct LogReader {
 
         var states: [ConnectionState] = []
         var lineStart = combined.startIndex
-        for i in combined.indices {
-            if combined[i] == 0x0A {
-                let lineData = combined[lineStart..<i]
-                let line = String(bytes: lineData, encoding: .isoLatin1) ?? ""
-                if let state = parsePanGPSLine(line) {
-                    states.append(state)
-                }
-                lineStart = combined.index(after: i)
+        for i in combined.indices where combined[i] == 0x0A {
+            let lineData = combined[lineStart..<i]
+            let line = String(bytes: lineData, encoding: .isoLatin1) ?? ""
+            if let state = parsePanGPSLine(line) {
+                states.append(state)
             }
+            lineStart = combined.index(after: i)
         }
         let tail = combined[lineStart...]
         // Guard against unbounded carry growth from an unterminated or malformed line.
