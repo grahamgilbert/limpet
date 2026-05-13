@@ -89,6 +89,7 @@ struct LogReader {
     private var inode: UInt64?
     private(set) var isAccessible: Bool = false
     private var carry: String = ""
+    private static let maxCarryBytes = 65_000
 
     init(path: String) {
         self.path = path
@@ -134,20 +135,14 @@ struct LogReader {
         let raw = String(bytes: chunk, encoding: .utf8) ?? ""
         let combined = carry + raw
 
-        var states: [ConnectionState] = []
-        var lineStart = combined.startIndex
-        var index = combined.startIndex
-        while index < combined.endIndex {
-            if combined[index] == "\n" {
-                let line = combined[lineStart..<index]
-                if let state = parsePanGPSLine(String(line)) {
-                    states.append(state)
-                }
-                lineStart = combined.index(after: index)
-            }
-            index = combined.index(after: index)
-        }
-        carry = String(combined[lineStart...])
+        var parts = combined.split(separator: "\n", omittingEmptySubsequences: false)
+        // The last element is either empty (line ended with \n) or an incomplete
+        // line fragment to carry forward to the next read.
+        let tail = combined.hasSuffix("\n") ? "" : String(parts.removeLast())
+        // Guard against unbounded carry growth from a stuck unterminated line.
+        carry = tail.utf8.count > Self.maxCarryBytes ? "" : tail
+
+        let states = parts.compactMap { parsePanGPSLine(String($0)) }
         return states
     }
 
