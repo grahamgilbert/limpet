@@ -65,7 +65,7 @@ struct AXCallbackContextTests {
         ctx.scheduleTickIfIdle()
         try? await Task.sleep(for: .milliseconds(100))
 
-        #expect(counter.count == 0)
+        #expect(counter.isEmpty)
     }
 }
 
@@ -75,6 +75,7 @@ private final class TickCounter: @unchecked Sendable {
     private let lock = NSLock()
     private var _count = 0
     var count: Int { lock.withLock { _count } }
+    var isEmpty: Bool { lock.withLock { _count == 0 } }
     func increment() { lock.withLock { _count += 1 } }
 }
 
