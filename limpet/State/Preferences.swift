@@ -110,17 +110,20 @@ public final class Preferences {
             defaults.set(true, forKey: Self.hasLaunchedBeforeKey)
         }
 
-        // Periodic resync so the toggle reflects the OS even if the user
-        // changed it externally (System Settings → General → Login Items).
-        // 5 s is more than fast enough; the menu onAppear already handles
-        // the common case. We also refresh on system wake, which is when
-        // SMAppService status is most likely to have shifted.
+        // Periodic resync so the toggle reflects the OS if the user changes it
+        // in System Settings → General → Login Items. 30 s is fine; the menu
+        // onAppear handles the fast path when the window is open. We also
+        // refresh on wake, when SMAppService status is most likely to shift.
+        //
+        // SMAppService.status makes a blocking XPC call to smd/trustd that can
+        // take seconds. Run it on a background thread and only hop back to the
+        // main actor to write the result.
         refreshTask = Task { [weak self] in
-            let wakeStream = NotificationCenter.default
+            let wakeStream = NSWorkspace.shared.notificationCenter
                 .notifications(named: NSWorkspace.didWakeNotification, object: nil)
             while !Task.isCancelled {
                 await withTaskGroup(of: Void.self) { group in
-                    group.addTask { try? await Task.sleep(for: .seconds(5)) }
+                    group.addTask { try? await Task.sleep(for: .seconds(30)) }
                     group.addTask {
                         for await _ in wakeStream { break }
                     }
@@ -128,7 +131,11 @@ public final class Preferences {
                     group.cancelAll()
                 }
                 guard let self else { return }
-                self.refreshLoginItemState()
+                let loginItem = self.loginItem
+                let (status, registered) = await Task.detached(priority: .background) {
+                    (loginItem.status, loginItem.isRegistered)
+                }.value
+                self.applyRefreshedState(status: status, registered: registered)
             }
         }
     }
@@ -154,7 +161,10 @@ public final class Preferences {
     }
 
     public func refreshLoginItemState() {
-        let newStatus = loginItem.status
+        applyRefreshedState(status: loginItem.status, registered: loginItem.isRegistered)
+    }
+
+    private func applyRefreshedState(status newStatus: LoginItemStatus, registered actual: Bool) {
         if newStatus != loginItemStatus {
             let oldStatus = loginItemStatus
             loginItemStatus = newStatus
@@ -167,7 +177,6 @@ public final class Preferences {
                 notifier.notifyRequiresApproval()
             }
         }
-        let actual = loginItem.isRegistered
         guard actual != startAtLogin else { return }
         suppressLoginItemSync = true
         startAtLogin = actual
