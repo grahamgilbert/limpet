@@ -20,7 +20,11 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Resolve SPM packages (fetches sign_update)
-        run: swift package resolve
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project limpet.xcodeproj \
+            -scheme limpet \
+            -derivedDataPath build
 
       - name: Copy item to stable appcast
         run: |
@@ -41,7 +45,7 @@ jobs:
               *old_dsa*) continue ;;
               *) SIGN_UPDATE="$c"; break ;;
             esac
-          done < <(find .build ~/Library/Developer/Xcode/DerivedData -maxdepth 8 -name sign_update -type f -perm -u+x 2>/dev/null)
+          done < <(find build ~/Library/Developer/Xcode/DerivedData -maxdepth 8 -name sign_update -type f -perm -u+x 2>/dev/null)
 
           if [ -z "$SIGN_UPDATE" ]; then
             echo "::error::sign_update binary not found"
