@@ -1,6 +1,7 @@
 // Copyright 2026 Graham Gilbert. Licensed under the Apache License,
 // Version 2.0. See LICENSE in the repo root for details.
 
+import Foundation
 import Testing
 @testable import limpet
 

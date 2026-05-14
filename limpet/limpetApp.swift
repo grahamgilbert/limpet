@@ -13,7 +13,7 @@ struct limpetApp: App {
     @State private var trust: AccessibilityTrustWatcher
     @State private var updater: Updater
     private let controller: AccessibilityVpnController
-    private let monitor: LogTailingStatusMonitor
+    private let monitor: VpnStatusMonitor
     private let popupLoop: PopupDismisserLoop
     private let watchdogTask: Task<Void, Never>
 
@@ -23,7 +23,7 @@ struct limpetApp: App {
         let notifier = SystemLoginItemNotifier()
         let preferences = Preferences(notifier: notifier)
         let controller = AccessibilityVpnController()
-        let monitor = LogTailingStatusMonitor()
+        let monitor = VpnStatusMonitor()
         let updater = Updater(wantsPrereleases: { UserDefaults.standard.bool(forKey: Preferences.installPrereleasesKey) })
 
         let watchdog = Watchdog(

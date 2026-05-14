@@ -29,7 +29,7 @@
 		A1010010000000000000A001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1010010000000000000B001 /* Assets.xcassets */; };
 		A101001A000000000000A001 /* GlobalProtectWindowProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101001A000000000000B001 /* GlobalProtectWindowProvider.swift */; };
 		A1020001000000000000A002 /* ParsePanGPSLineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020001000000000000B002 /* ParsePanGPSLineTests.swift */; };
-		A1020002000000000000A002 /* LogTailingStatusMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020002000000000000B002 /* LogTailingStatusMonitorTests.swift */; };
+		A1020002000000000000A002 /* VpnStatusMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020002000000000000B002 /* VpnStatusMonitorTests.swift */; };
 		A1020003000000000000A002 /* WatchdogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020003000000000000B002 /* WatchdogTests.swift */; };
 		A1020004000000000000A002 /* PopupDismisserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020004000000000000B002 /* PopupDismisserTests.swift */; };
 		A1020005000000000000A002 /* AppStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020005000000000000B002 /* AppStateTests.swift */; };
@@ -50,6 +50,8 @@
 		A1030001000000000000A001 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = A1040001000000000000B001 /* Sparkle */; };
 		A101001F000000000000A001 /* GPCodeSignatureVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A101001F000000000000B001 /* GPCodeSignatureVerifier.swift */; };
 		A102000F000000000000A002 /* GPCodeSignatureVerifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A102000F000000000000B002 /* GPCodeSignatureVerifierTests.swift */; };
+		A1020010000000000000A002 /* AXCallbackContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020010000000000000B002 /* AXCallbackContextTests.swift */; };
+		A1020011000000000000A002 /* AXHelpersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1020011000000000000B002 /* AXHelpersTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -89,7 +91,7 @@
 		A101001A000000000000B001 /* GlobalProtectWindowProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalProtectWindowProvider.swift; sourceTree = "<group>"; };
 		A101001F000000000000B001 /* GPCodeSignatureVerifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPCodeSignatureVerifier.swift; sourceTree = "<group>"; };
 		A1020001000000000000B002 /* ParsePanGPSLineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ParsePanGPSLineTests.swift; sourceTree = "<group>"; };
-		A1020002000000000000B002 /* LogTailingStatusMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogTailingStatusMonitorTests.swift; sourceTree = "<group>"; };
+		A1020002000000000000B002 /* VpnStatusMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VpnStatusMonitorTests.swift; sourceTree = "<group>"; };
 		A1020003000000000000B002 /* WatchdogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchdogTests.swift; sourceTree = "<group>"; };
 		A1020004000000000000B002 /* PopupDismisserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupDismisserTests.swift; sourceTree = "<group>"; };
 		A1020005000000000000B002 /* AppStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTests.swift; sourceTree = "<group>"; };
@@ -103,6 +105,8 @@
 		A102000E000000000000B002 /* RecordingLoginItemNotifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLoginItemNotifier.swift; sourceTree = "<group>"; };
 		A102000D000000000000B002 /* AsyncSafeLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncSafeLock.swift; sourceTree = "<group>"; };
 		A102000F000000000000B002 /* GPCodeSignatureVerifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPCodeSignatureVerifierTests.swift; sourceTree = "<group>"; };
+		A1020010000000000000B002 /* AXCallbackContextTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXCallbackContextTests.swift; sourceTree = "<group>"; };
+		A1020011000000000000B002 /* AXHelpersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AXHelpersTests.swift; sourceTree = "<group>"; };
 		A1020100000000000000B002 /* pangps_connected.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pangps_connected.txt; sourceTree = "<group>"; };
 		A1020101000000000000B002 /* pangps_disconnected.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pangps_disconnected.txt; sourceTree = "<group>"; };
 		A1020102000000000000B002 /* pangps_retry.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = pangps_retry.txt; sourceTree = "<group>"; };
@@ -157,13 +161,15 @@
 			isa = PBXGroup;
 			children = (
 				A1020001000000000000B002 /* ParsePanGPSLineTests.swift */,
-				A1020002000000000000B002 /* LogTailingStatusMonitorTests.swift */,
+				A1020002000000000000B002 /* VpnStatusMonitorTests.swift */,
 				A1020003000000000000B002 /* WatchdogTests.swift */,
 				A1020004000000000000B002 /* PopupDismisserTests.swift */,
 				A1020005000000000000B002 /* AppStateTests.swift */,
 				A1020006000000000000B002 /* PreferencesTests.swift */,
 				A1020007000000000000B002 /* StatusIconTests.swift */,
 				A102000F000000000000B002 /* GPCodeSignatureVerifierTests.swift */,
+				A1020010000000000000B002 /* AXCallbackContextTests.swift */,
+				A1020011000000000000B002 /* AXHelpersTests.swift */,
 				A1G00020000000000000F020 /* Fakes */,
 				A1G00021000000000000F021 /* Fixtures */,
 			);
@@ -419,7 +425,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1020001000000000000A002 /* ParsePanGPSLineTests.swift in Sources */,
-				A1020002000000000000A002 /* LogTailingStatusMonitorTests.swift in Sources */,
+				A1020002000000000000A002 /* VpnStatusMonitorTests.swift in Sources */,
 				A1020003000000000000A002 /* WatchdogTests.swift in Sources */,
 				A1020004000000000000A002 /* PopupDismisserTests.swift in Sources */,
 				A1020005000000000000A002 /* AppStateTests.swift in Sources */,
@@ -433,6 +439,8 @@
 				A102000E000000000000A002 /* RecordingLoginItemNotifier.swift in Sources */,
 				A102000D000000000000A002 /* AsyncSafeLock.swift in Sources */,
 				A102000F000000000000A002 /* GPCodeSignatureVerifierTests.swift in Sources */,
+				A1020010000000000000A002 /* AXCallbackContextTests.swift in Sources */,
+				A1020011000000000000A002 /* AXHelpersTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
