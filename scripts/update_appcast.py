@@ -42,6 +42,10 @@ def main() -> int:
                         help='sign_update output, e.g. sparkle:edSignature="..." length="..."')
     parser.add_argument("--release-notes-url", required=False, default="",
                         help="Optional URL to release notes (Sparkle dialog will fetch and display it).")
+    parser.add_argument("--release-notes-signature", required=False, default="",
+                        help="EdDSA signature of the release notes file.")
+    parser.add_argument("--release-notes-length", required=False, default="",
+                        help="Byte length of the release notes file.")
     args = parser.parse_args()
 
     sig_attrs = parse_signature_line(args.signature)
@@ -57,7 +61,15 @@ def main() -> int:
 
     notes_link = ""
     if args.release_notes_url:
-        notes_link = f"            <sparkle:releaseNotesLink>{args.release_notes_url}</sparkle:releaseNotesLink>\n"
+        if args.release_notes_signature and args.release_notes_length:
+            notes_link = (
+                f'            <sparkle:releaseNotesLink'
+                f' sparkle:edSignature="{args.release_notes_signature}"'
+                f' length="{args.release_notes_length}"'
+                f'>{args.release_notes_url}</sparkle:releaseNotesLink>\n'
+            )
+        else:
+            notes_link = f"            <sparkle:releaseNotesLink>{args.release_notes_url}</sparkle:releaseNotesLink>\n"
 
     item = f"""        <item>
             <title>Version {args.version}</title>

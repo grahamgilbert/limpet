@@ -225,6 +225,42 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Generate and sign release notes
+        id: release_notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.version }}"
+          SIGN_UPDATE="${{ steps.sparkle_tools.outputs.sign_update }}"
+          KEY_FILE="${{ steps.sparkle_tools.outputs.key_file }}"
+          NOTES_FILE="release-notes-$VERSION.html"
+
+          # Fetch GitHub's auto-generated release notes as markdown and convert to HTML
+          BODY="$(gh release view "v$VERSION" --json body --jq '.body')"
+          printf '<!DOCTYPE html><html><body>%s</body></html>' \
+            "$(printf '%s' "$BODY" | python3 -c '
+import sys, re
+text = sys.stdin.read()
+# Convert markdown headers, bold, and newlines to basic HTML
+text = re.sub(r"^## (.+)$", r"<h2>\1</h2>", text, flags=re.MULTILINE)
+text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+text = re.sub(r"\* (.+)", r"<li>\1</li>", text)
+text = text.replace("\n\n", "<br>")
+print(text, end="")
+')" > "$NOTES_FILE"
+
+          # Sign the release notes file
+          SIG_OUT="$("$SIGN_UPDATE" --ed-key-file "$KEY_FILE" --disable-signing-warning -p "$NOTES_FILE" 2>&1)"
+          NOTES_SIG="$SIG_OUT"
+          NOTES_LEN="$(wc -c < "$NOTES_FILE" | tr -d ' ')"
+          echo "notes_sig=$NOTES_SIG" >> "$GITHUB_OUTPUT"
+          echo "notes_len=$NOTES_LEN" >> "$GITHUB_OUTPUT"
+          echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
+
+          # Upload as a release asset
+          gh release upload "v$VERSION" "$NOTES_FILE" --clobber
+
       - name: Update and sign appcast.xml
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -236,7 +272,10 @@ jobs:
           PUB_DATE="$(LC_ALL=en_US.UTF-8 date -u '+%a, %d %b %Y %H:%M:%S %z')"
           SIG_LINE="${{ steps.sparkle_sign.outputs.sig_output }}"
           BUILD_NUMBER="$(git rev-list --count HEAD)"
-          NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/v$VERSION"
+          NOTES_FILE="${{ steps.release_notes.outputs.notes_file }}"
+          NOTES_URL="https://github.com/${{ github.repository }}/releases/download/v$VERSION/$NOTES_FILE"
+          NOTES_SIG="${{ steps.release_notes.outputs.notes_sig }}"
+          NOTES_LEN="${{ steps.release_notes.outputs.notes_len }}"
           SIGN_UPDATE="${{ steps.sparkle_tools.outputs.sign_update }}"
           KEY_FILE="${{ steps.sparkle_tools.outputs.key_file }}"
 
@@ -247,7 +286,9 @@ jobs:
             --url "$DMG_URL" \
             --pub-date "$PUB_DATE" \
             --signature "$SIG_LINE" \
-            --release-notes-url "$NOTES_URL"
+            --release-notes-url "$NOTES_URL" \
+            --release-notes-signature "$NOTES_SIG" \
+            --release-notes-length "$NOTES_LEN"
 
           "$SIGN_UPDATE" --ed-key-file "$KEY_FILE" --disable-signing-warning appcast-prerelease.xml
 
