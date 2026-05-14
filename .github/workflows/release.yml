@@ -237,18 +237,8 @@ jobs:
           NOTES_FILE="release-notes-$VERSION.html"
 
           # Fetch GitHub's auto-generated release notes as markdown and convert to HTML
-          BODY="$(gh release view "v$VERSION" --json body --jq '.body')"
-          printf '<!DOCTYPE html><html><body>%s</body></html>' \
-            "$(printf '%s' "$BODY" | python3 -c '
-import sys, re
-text = sys.stdin.read()
-# Convert markdown headers, bold, and newlines to basic HTML
-text = re.sub(r"^## (.+)$", r"<h2>\1</h2>", text, flags=re.MULTILINE)
-text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
-text = re.sub(r"\* (.+)", r"<li>\1</li>", text)
-text = text.replace("\n\n", "<br>")
-print(text, end="")
-')" > "$NOTES_FILE"
+          gh release view "v$VERSION" --json body --jq '.body' \
+            | python3 scripts/markdown_to_html.py > "$NOTES_FILE"
 
           # Sign the release notes file
           SIG_OUT="$("$SIGN_UPDATE" --ed-key-file "$KEY_FILE" --disable-signing-warning -p "$NOTES_FILE" 2>&1)"
