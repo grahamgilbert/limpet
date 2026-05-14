@@ -166,7 +166,9 @@ public final class PopupDismisserLoop: @unchecked Sendable {
                 guard let refcon else { return }
                 let ctx = Unmanaged<AXCallbackContext>.fromOpaque(refcon).takeUnretainedValue()
                 guard ctx.isEnabled() else { return }
-                Task { _ = await ctx.dismisser.tick() }
+                // Skip if a tick is already in flight to avoid piling up concurrent
+                // AX tree walks when GP fires window-created events in rapid succession.
+                ctx.scheduleTickIfIdle()
             }
             guard AXObserverCreate(pid, callback, &obs) == .success,
                   let obs else { return }
@@ -225,9 +227,23 @@ public final class PopupDismisserLoop: @unchecked Sendable {
 private final class AXCallbackContext: @unchecked Sendable {
     let dismisser: any PopupDismissing
     let isEnabled: @Sendable () -> Bool
+    private var inflightTask: Task<Void, Never>?
+    private let lock = NSLock()
+
     init(dismisser: any PopupDismissing, isEnabled: @escaping @Sendable () -> Bool) {
         self.dismisser = dismisser
         self.isEnabled = isEnabled
+    }
+
+    func scheduleTickIfIdle() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard inflightTask == nil else { return }
+        let dismisser = self.dismisser
+        inflightTask = Task { [weak self] in
+            _ = await dismisser.tick()
+            self?.lock.withLock { self?.inflightTask = nil }
+        }
     }
 }
 
