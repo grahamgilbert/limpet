@@ -101,3 +101,82 @@ struct PopupDismisserTests {
         #expect(counter.pressed == 2)
     }
 }
+
+// MARK: - PopupDismisserLoop
+
+@Suite("PopupDismisserLoop")
+struct PopupDismisserLoopTests {
+    @Test("start/stop: tick is called while running, not after stop")
+    func startStop() async throws {
+        let counter = TickCounter()
+        let loop = PopupDismisserLoop(
+            dismisser: counter,
+            time: SystemTimeSource(),
+            fallbackInterval: .milliseconds(10)
+        )
+        loop.start()
+        try await Task.sleep(for: .milliseconds(80))
+        let countWhileRunning = counter.count
+        #expect(countWhileRunning > 0)
+
+        loop.stop()
+        try await Task.sleep(for: .milliseconds(30))
+        #expect(counter.count == countWhileRunning)
+    }
+
+    @Test("isEnabled=false suppresses tick calls")
+    func disabledSkipsTick() async throws {
+        let counter = TickCounter()
+        let loop = PopupDismisserLoop(
+            dismisser: counter,
+            time: SystemTimeSource(),
+            fallbackInterval: .milliseconds(10),
+            isEnabled: { false }
+        )
+        loop.start()
+        try await Task.sleep(for: .milliseconds(80))
+        loop.stop()
+        #expect(counter.count == 0) // swiftlint:disable:this empty_count
+    }
+
+    @Test("stop is idempotent")
+    func stopIdempotent() async throws {
+        let loop = PopupDismisserLoop(
+            dismisser: TickCounter(),
+            time: SystemTimeSource(),
+            fallbackInterval: .milliseconds(50)
+        )
+        loop.start()
+        try await Task.sleep(for: .milliseconds(20))
+        loop.stop()
+        loop.stop() // should not crash
+    }
+
+    @Test("deinit cancels the loop")
+    func deinitCancels() async throws {
+        let counter = TickCounter()
+        var loop: PopupDismisserLoop? = PopupDismisserLoop(
+            dismisser: counter,
+            time: SystemTimeSource(),
+            fallbackInterval: .milliseconds(10)
+        )
+        loop?.start()
+        try await Task.sleep(for: .milliseconds(50))
+        loop = nil  // triggers deinit → task cancel
+        let countAtDeinit = counter.count
+        try await Task.sleep(for: .milliseconds(40))
+        #expect(counter.count == countAtDeinit)
+    }
+}
+
+/// Simple `PopupDismissing` that just counts ticks.
+private final class TickCounter: PopupDismissing, @unchecked Sendable {
+    private let lock = AsyncSafeLock()
+    private var _count = 0
+    var count: Int { lock.withLock { _count } }
+
+    func tick() async -> Bool {
+        lock.withLock { _count += 1 }
+        return false
+    }
+}

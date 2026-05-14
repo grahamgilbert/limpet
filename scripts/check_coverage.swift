@@ -39,6 +39,7 @@ guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
 // not by unit tests.
 let excludedSubstrings: [String] = [
     "AXHelpers.swift",
+    "PopupDismisser.swift",                 // AXObserver paths require live GP process
     "VpnController.swift",                  // AccessibilityVpnController
     "GlobalProtectWindowProvider.swift",    // AX-driven WindowProvider
     "SMAppServiceLoginItem.swift",          // SMAppService wrapper

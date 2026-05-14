@@ -31,7 +31,7 @@ public enum VpnControlError: Error, CustomStringConvertible {
 @MainActor
 public final class AccessibilityVpnController: VpnControlling {
     private static let log = Logger(subsystem: "com.grahamgilbert.limpet", category: "controller")
-    private static let bundleID = "com.paloaltonetworks.GlobalProtect.client"
+    private static let bundleID = GlobalProtectInstallation.bundleID
 
     private let disconnectComment: String
     private let verifier = GPCodeSignatureVerifier()
