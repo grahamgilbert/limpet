@@ -105,6 +105,41 @@ struct PreferencesTests {
         #expect(notifier.approvalCalls == 2)
     }
 
+    // Regression: applyRefreshedState was only called from refreshLoginItemState
+    // (on main thread). Verify it correctly syncs status and startAtLogin when
+    // called with pre-fetched values (as the background-thread refresh path does).
+    @Test @MainActor
+    func applyRefreshedStateUpdatesStatusAndStartAtLogin() {
+        let defaults = freshDefaults()
+        defaults.set(true, forKey: "limpet.hasLaunchedBefore")
+
+        let login = FakeLoginItem(initialStatus: .enabled)
+        let prefs = Preferences(defaults: defaults, loginItem: login, notifier: RecordingLoginItemNotifier())
+        #expect(prefs.startAtLogin == true)
+
+        // Simulate OS removing the login item externally
+        login.setStatus(.notRegistered)
+        prefs.refreshLoginItemState()
+
+        #expect(prefs.startAtLogin == false)
+        #expect(prefs.loginItemStatus == .notRegistered)
+    }
+
+    @Test @MainActor
+    func refreshLoginItemStateDoesNotNotifyOnUnchangedStatus() {
+        let defaults = freshDefaults()
+        defaults.set(true, forKey: "limpet.hasLaunchedBefore")
+
+        let login = FakeLoginItem(initialStatus: .enabled)
+        let notifier = RecordingLoginItemNotifier()
+        let prefs = Preferences(defaults: defaults, loginItem: login, notifier: notifier)
+
+        prefs.refreshLoginItemState()
+        prefs.refreshLoginItemState()
+
+        #expect(notifier.approvalCalls == 0)
+    }
+
     @Test @MainActor
     func desiredStateProxyReadsThrough() {
         let defaults = freshDefaults()

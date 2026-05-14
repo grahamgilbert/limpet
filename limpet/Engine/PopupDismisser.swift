@@ -224,7 +224,7 @@ public final class PopupDismisserLoop: @unchecked Sendable {
 }
 
 /// Bundles the dismisser and the enabled-check for the AX callback refcon.
-private final class AXCallbackContext: @unchecked Sendable {
+final class AXCallbackContext: @unchecked Sendable {
     let dismisser: any PopupDismissing
     let isEnabled: @Sendable () -> Bool
     private var inflightTask: Task<Void, Never>?
