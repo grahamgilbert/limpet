@@ -46,13 +46,19 @@ enum AX {
     }
 
     /// Walks a subtree depth-first, returning the first descendant for which
-    /// `match` returns `true`.
+    /// `match` returns `true`. Iterative to avoid stack overflow on deep AX trees.
     static func find(_ root: AXUIElement, where match: (AXUIElement) -> Bool) -> AXUIElement? {
-        if match(root) { return root }
-        for child in children(root) {
-            if let found = find(child, where: match) {
-                return found
-            }
+        findNode(root, children: { children($0) }, where: match)
+    }
+
+    /// Generic iterative DFS used by `find`. Extracted so it can be tested
+    /// without needing real `AXUIElement` instances.
+    static func findNode<Node>(_ root: Node, children childrenOf: (Node) -> [Node], where match: (Node) -> Bool) -> Node? {
+        var stack = [root]
+        while !stack.isEmpty {
+            let node = stack.removeLast()
+            if match(node) { return node }
+            stack.append(contentsOf: childrenOf(node).reversed())
         }
         return nil
     }
