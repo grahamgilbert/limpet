@@ -122,14 +122,20 @@ public final class Preferences {
             let wakeStream = NSWorkspace.shared.notificationCenter
                 .notifications(named: NSWorkspace.didWakeNotification, object: nil)
             while !Task.isCancelled {
-                await withTaskGroup(of: Void.self) { group in
-                    group.addTask { try? await Task.sleep(for: .seconds(30)) }
-                    group.addTask {
-                        for await _ in wakeStream { break }
-                    }
-                    await group.next()
-                    group.cancelAll()
+                // Use a signal channel rather than group.cancelAll() on a live
+                // async sequence iterator — cancelAll() + AsyncStream can trigger
+                // a Range assertion in the Swift stdlib on macOS 26.
+                let signal = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+                let wakeTask = Task {
+                    for await _ in wakeStream { signal.continuation.yield(); return }
                 }
+                let timerTask = Task {
+                    try? await Task.sleep(for: .seconds(30))
+                    signal.continuation.yield()
+                }
+                for await _ in signal.stream { break }
+                wakeTask.cancel()
+                timerTask.cancel()
                 guard let self else { return }
                 let loginItem = self.loginItem
                 let (status, registered) = await Task.detached(priority: .background) {
