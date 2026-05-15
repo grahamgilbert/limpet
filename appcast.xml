@@ -82,9 +82,19 @@
             <sparkle:releaseNotesLink>https://github.com/grahamgilbert/limpet/releases/tag/v0.2.5</sparkle:releaseNotesLink>
             <enclosure url="https://github.com/grahamgilbert/limpet/releases/download/v0.2.5/limpet-0.2.5.dmg" sparkle:edSignature="l/TpIYHmtsmLnIh1qYkVJCdSqh7HuhC7icCwpMtAxDU543WdsU8fU7LH5jpD3rmer0qUN+KAX1fdhX3YVomVCg==" length="2114155" type="application/octet-stream"/>
         </item>
+            <item>
+            <title>Version 0.2.8</title>
+            <pubDate>Fri, 15 May 2026 05:04:36 +0000</pubDate>
+            <sparkle:version>71</sparkle:version>
+            <sparkle:shortVersionString>0.2.8</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <link>https://github.com/grahamgilbert/limpet/releases/tag/v0.2.8</link>
+            <sparkle:releaseNotesLink sparkle:edSignature="yjtAGeO7DSjXM8oLp8fXMWu+ao/mOTOjMXHutrnMcjyznou1rzVKo8LW7kveyz7Qtdcp+0Mag37p7a7FEHWuAw==" length="589">https://github.com/grahamgilbert/limpet/releases/download/v0.2.8/release-notes-0.2.8.html</sparkle:releaseNotesLink>
+            <enclosure url="https://github.com/grahamgilbert/limpet/releases/download/v0.2.8/limpet-0.2.8.dmg" sparkle:edSignature="ETIHoZAeEas4o7IijLTJx3WRSOvAU7t2OI9aAJtmOhK3cGIxXctV/fKsp/h36QZc3dWWpzNwzhU4HDuxucYACA==" length="2152756" type="application/octet-stream"/>
+        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: exNzQ7BeekqG+p9iSW6PSJ5MN8UmNKdsGxrADpICOHCYOjNAS+JiubCp2Xig759IXW5hMcRAsgSBEABOCk7PCw==
-length: 6610
+edSignature: fazXBPq6NZZfRrZWgRQWspVSyK9KXAvZcvCi9hunxT/UcYG/xLP4W8p+uVI+8dJTamDNvOkkhcptXTqqjdQ8Cw==
+length: 7589
 -->
