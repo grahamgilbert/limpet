@@ -104,6 +104,7 @@ struct MenuBarContent: View {
                     pendingTask?.cancel()
                     pendingTask = nil
                 }
+                clearErrorIfSatisfied(current: newValue)
             }
             .onAppear {
                 // If the menu reopens after reality caught up while it was
@@ -113,6 +114,7 @@ struct MenuBarContent: View {
                     pendingTask?.cancel()
                     pendingTask = nil
                 }
+                clearErrorIfSatisfied(current: connectionIsOn)
             }
 
             Divider()
@@ -175,6 +177,12 @@ private struct VPNToggleRow: View {
 }
 
 extension MenuBarContent {
+    fileprivate func clearErrorIfSatisfied(current: Bool) {
+        if current == preferences.desiredOn {
+            appState.lastError = nil
+        }
+    }
+
     fileprivate func triggerToggle(to newValue: Bool) {
         appState.lastError = nil
         pendingTask?.cancel()
