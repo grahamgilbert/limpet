@@ -114,72 +114,84 @@ public final class VpnStatusMonitor: VpnStatusStreaming, @unchecked Sendable {
         // NWPathMonitor fires once immediately at startup with the current state.
         var interfacePresent = false
 
-        while !Task.isCancelled {
-            // When the interface is present we're connected — no log I/O needed.
-            // Just wait for the next interface event.
-            //
-            // When the interface is absent, also wake on the poll timer so we can
-            // detect connecting → disconnected transitions in the log.
-            let event = await nextEvent(
-                from: observer.changes,
-                pollInterval: interfacePresent ? nil : pollInterval
-            )
+        // Drain the interface-change stream, but also wake periodically while
+        // the interface is absent so we can poll the log for reconnect state.
+        // We drive the loop with a single `for await` on the changes stream and
+        // use a separate background task to inject a synthetic `.pollTimerFired`
+        // event via a shared channel when the poll interval elapses.
+        let eventChannel = AsyncStream<MonitorEvent>.makeStream(bufferingPolicy: .bufferingNewest(4))
 
+        // Bridge interface changes into the event channel.
+        // Use withTaskCancellationHandler so cancellation is handled synchronously
+        // rather than via AsyncStream iterator teardown, which can trigger a Swift
+        // stdlib Range assertion on macOS 26 beta when cancelled concurrently.
+        let bridgeTask = Task {
+            await withTaskCancellationHandler {
+                for await present in observer.changes {
+                    eventChannel.continuation.yield(.interfaceChanged(present))
+                }
+                eventChannel.continuation.finish()
+            } onCancel: {
+                eventChannel.continuation.finish()
+            }
+        }
+        defer { bridgeTask.cancel() }
+
+        // Timer task: re-created whenever we need a poll tick.
+        var timerTask: Task<Void, Never>?
+
+        func scheduleTimer() {
+            timerTask?.cancel()
+            timerTask = Task {
+                try? await Task.sleep(for: pollInterval)
+                if !Task.isCancelled {
+                    eventChannel.continuation.yield(.pollTimerFired)
+                }
+            }
+        }
+
+        // Start a timer immediately since we don't know the initial interface
+        // state until the first event arrives.
+        scheduleTimer()
+
+        for await event in eventChannel.stream {
             guard !Task.isCancelled else { break }
 
             switch event {
             case .interfaceChanged(let present):
                 interfacePresent = present
                 if present {
-                    // Interface is up → emit connected immediately; no log read needed.
+                    timerTask?.cancel()
+                    timerTask = nil
                     if lastEmitted != .connected {
                         continuation.yield(.connected)
                         lastEmitted = .connected
                     }
                 } else {
-                    // Interface just went down — read the log right away to pick up the
-                    // first post-disconnect state without waiting for the poll timer.
+                    // Interface just went down — read log immediately, then schedule polling.
                     for state in reader.consumeAppended() where state != lastEmitted {
                         continuation.yield(state)
                         lastEmitted = state
                     }
+                    scheduleTimer()
                 }
             case .pollTimerFired:
-                // Interface is absent; read the log to track connecting vs disconnected.
-                for state in reader.consumeAppended() where state != lastEmitted {
-                    continuation.yield(state)
-                    lastEmitted = state
+                if !interfacePresent {
+                    for state in reader.consumeAppended() where state != lastEmitted {
+                        continuation.yield(state)
+                        lastEmitted = state
+                    }
+                    scheduleTimer()
                 }
             }
         }
-    }
 
-    // MARK: - Event helper
+        timerTask?.cancel()
+    }
 
     private enum MonitorEvent {
         case interfaceChanged(Bool)
         case pollTimerFired
-    }
-
-    private static func nextEvent(
-        from changes: AsyncStream<Bool>,
-        pollInterval: Duration?
-    ) async -> MonitorEvent {
-        await withTaskGroup(of: MonitorEvent.self) { group in
-            group.addTask {
-                for await present in changes { return .interfaceChanged(present) }
-                return .pollTimerFired
-            }
-            if let interval = pollInterval {
-                group.addTask {
-                    try? await Task.sleep(for: interval)
-                    return .pollTimerFired
-                }
-            }
-            let result = await group.next() ?? .pollTimerFired
-            group.cancelAll()
-            return result
-        }
     }
 }
 
