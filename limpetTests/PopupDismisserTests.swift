@@ -21,6 +21,14 @@ struct PopupDismisserTests {
         #expect(shouldDismissPopup(title: "GlobalProtect", body: "Your session timeout has expired.") == true)
     }
 
+    @Test("idle timeout text matches")
+    func idleTimeoutMatches() {
+        #expect(shouldDismissPopup(
+            title: "GlobalProtect",
+            body: "Your endpoint has reached the specified time to remain idle. You will be logged out of GlobalProtect."
+        ) == true)
+    }
+
     @Test("case-insensitive body match")
     func caseInsensitive() {
         #expect(shouldDismissPopup(title: "GlobalProtect", body: "DISCONNECTED FROM VPN") == true)
