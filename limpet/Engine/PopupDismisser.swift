@@ -37,6 +37,7 @@ public func shouldDismissPopup(title: String?, body: String?) -> Bool {
     return body.contains("disconnected")
         || body.contains("connectivity issues")
         || body.contains("session timeout")
+        || body.contains("time to remain idle")
 }
 
 /// Implementation of `PopupDismissing` that delegates window enumeration to a
