@@ -12,6 +12,7 @@ import Foundation
 /// `GPFakeNode` stubs in unit tests.
 struct GPWindowAccessors<Node>: @unchecked Sendable {
     let role: (Node) -> String?
+    let subrole: (Node) -> String?
     let value: (Node) -> String?
     let title: (Node) -> String?
     let children: (Node) -> [Node]
@@ -20,6 +21,7 @@ struct GPWindowAccessors<Node>: @unchecked Sendable {
 extension GPWindowAccessors where Node == AXUIElement {
     static let live = GPWindowAccessors(
         role: AX.role,
+        subrole: AX.subrole,
         value: AX.value,
         title: AX.title,
         children: AX.children
@@ -27,6 +29,17 @@ extension GPWindowAccessors where Node == AXUIElement {
 }
 
 enum GPWindowParser {
+    private static let dialogSubroles: Set<String> = [
+        kAXDialogSubrole as String,
+        kAXSystemDialogSubrole as String,
+    ]
+
+    /// Returns true if the window's subrole is a dialog type (AXDialog or AXSystemDialog).
+    /// Filters out the main GP application window, which carries AXStandardWindow.
+    static func isDialog<N>(window: N, using ax: GPWindowAccessors<N>) -> Bool {
+        dialogSubroles.contains(ax.subrole(window) ?? "")
+    }
+
     /// Returns the window title, falling back to the first top-level
     /// AXStaticText value when kAXTitleAttribute is empty (idle-timeout popup
     /// layout renders the title as a static text node, not a window attribute).
@@ -84,6 +97,7 @@ enum GPWindowParser {
 /// unit-tested independently using `GPFakeNode` stubs.
 public final class GlobalProtectWindowProvider: WindowProvider, @unchecked Sendable {
     private static let bundleID = GlobalProtectInstallation.bundleID
+    private static let buttonRole = kAXButtonRole as String
     private let verifier = GPCodeSignatureVerifier()
 
     public init() {}
@@ -94,18 +108,20 @@ public final class GlobalProtectWindowProvider: WindowProvider, @unchecked Senda
             return []
         }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        return AX.windows(appElement).map { window in
-            let title = GPWindowParser.title(in: window, using: .live)
-            let body = GPWindowParser.bodyText(in: window, using: .live)
-            let firstButton = AX.find(window, where: { AX.role($0) == kAXButtonRole as String })
-            return PopupWindow(
-                title: title,
-                bodyText: body,
-                pressPrimary: { [firstButton] in
-                    guard let firstButton else { return false }
-                    return AX.press(firstButton)
-                }
-            )
-        }
+        return AX.windows(appElement)
+            .filter { GPWindowParser.isDialog(window: $0, using: .live) }
+            .map { window in
+                let title = GPWindowParser.title(in: window, using: .live)
+                let body = GPWindowParser.bodyText(in: window, using: .live)
+                let firstButton = AX.find(window, where: { AX.role($0) == Self.buttonRole })
+                return PopupWindow(
+                    title: title,
+                    bodyText: body,
+                    pressPrimary: { [firstButton] in
+                        guard let firstButton else { return false }
+                        return AX.press(firstButton)
+                    }
+                )
+            }
     }
 }
