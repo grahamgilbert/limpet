@@ -84,6 +84,11 @@ enum GPWindowParser {
 /// unit-tested independently using `GPFakeNode` stubs.
 public final class GlobalProtectWindowProvider: WindowProvider, @unchecked Sendable {
     private static let bundleID = GlobalProtectInstallation.bundleID
+    private static let dialogSubroles: Set<String> = [
+        kAXDialogSubrole as String,
+        kAXSystemDialogSubrole as String,
+    ]
+    private static let buttonRole = kAXButtonRole as String
     private let verifier = GPCodeSignatureVerifier()
 
     public init() {}
@@ -94,18 +99,20 @@ public final class GlobalProtectWindowProvider: WindowProvider, @unchecked Senda
             return []
         }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        return AX.windows(appElement).map { window in
-            let title = GPWindowParser.title(in: window, using: .live)
-            let body = GPWindowParser.bodyText(in: window, using: .live)
-            let firstButton = AX.find(window, where: { AX.role($0) == kAXButtonRole as String })
-            return PopupWindow(
-                title: title,
-                bodyText: body,
-                pressPrimary: { [firstButton] in
-                    guard let firstButton else { return false }
-                    return AX.press(firstButton)
-                }
-            )
-        }
+        return AX.windows(appElement)
+            .filter { Self.dialogSubroles.contains(AX.subrole($0) ?? "") }
+            .map { window in
+                let title = GPWindowParser.title(in: window, using: .live)
+                let body = GPWindowParser.bodyText(in: window, using: .live)
+                let firstButton = AX.find(window, where: { AX.role($0) == Self.buttonRole })
+                return PopupWindow(
+                    title: title,
+                    bodyText: body,
+                    pressPrimary: { [firstButton] in
+                        guard let firstButton else { return false }
+                        return AX.press(firstButton)
+                    }
+                )
+            }
     }
 }

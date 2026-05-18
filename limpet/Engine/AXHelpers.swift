@@ -28,6 +28,10 @@ enum AX {
         string(element, kAXRoleAttribute as String)
     }
 
+    static func subrole(_ element: AXUIElement) -> String? {
+        string(element, kAXSubroleAttribute as String)
+    }
+
     static func title(_ element: AXUIElement) -> String? {
         string(element, kAXTitleAttribute as String)
     }
