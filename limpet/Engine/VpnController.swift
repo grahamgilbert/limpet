@@ -51,9 +51,29 @@ public final class AccessibilityVpnController: VpnControlling {
         let previousApp = NSWorkspace.shared.frontmostApplication
         defer { previousApp?.activate() }
         let appElement = try await openPopoverIfNeeded()
-        fillPortalIfConfigured(in: appElement)
-        try pressButton(matching: ["Connect", "Enable", "Reconnect"], in: appElement)
-        Self.log.info("connect: button pressed")
+        if fillPortalIfConfigured(in: appElement) {
+            // GP may briefly dismiss and recreate the panel after a programmatic
+            // value change. Re-poll for the panel the same way we do after opening.
+            var settled = false
+            for _ in 0..<20 {
+                try? await Task.sleep(for: .milliseconds(100))
+                if !panelWindows(appElement).isEmpty { settled = true; break }
+            }
+            if !settled {
+                Self.log.error("panel disappeared after portal fill")
+                throw VpnControlError.popoverDidNotOpen
+            }
+        }
+        // When GP is stuck in Connecting... there is no Connect button — fall back
+        // to the hamburger menu's "Refresh Connection" item instead.
+        do {
+            try pressButton(matching: ["Connect", "Enable", "Reconnect"], in: appElement)
+            Self.log.info("connect: button pressed")
+        } catch {
+            Self.log.info("connect: no Connect button, trying Refresh Connection via options menu")
+            try pressOptionsMenuItem("Refresh Connection", in: appElement)
+            Self.log.info("connect: Refresh Connection pressed")
+        }
     }
 
     public func disconnect() async throws {
@@ -113,8 +133,15 @@ public final class AccessibilityVpnController: VpnControlling {
         throw VpnControlError.popoverDidNotOpen
     }
 
+    /// Returns the GP status-item panel window(s).
+    /// The panel has subrole AXSystemDialog and no title.
+    /// We exclude AXDialog (alert popups) and the persistent Settings window.
     private func panelWindows(_ appElement: AXUIElement) -> [AXUIElement] {
-        AX.windows(appElement).filter { !GPWindowParser.isDialog(window: $0, using: .live) }
+        AX.windows(appElement).filter {
+            let subrole = AX.subrole($0) ?? ""
+            let title = AX.title($0) ?? ""
+            return subrole == (kAXSystemDialogSubrole as String) && title.isEmpty
+        }
     }
 
     // GP's menu extra is only reachable via kAXExtrasMenuBarAttribute on the GP
@@ -136,11 +163,21 @@ public final class AccessibilityVpnController: VpnControlling {
     }
 
     private func pressButton(matching titles: [String], in appElement: AXUIElement) throws {
-        for window in AX.windows(appElement) {
+        let windows = AX.windows(appElement)
+        Self.log.info("pressButton: \(windows.count) windows to search")
+        for (wi, window) in windows.enumerated() {
+            var buttons: [String] = []
+            _ = AX.find(window, where: { element in
+                guard AX.role(element) == kAXButtonRole as String else { return false }
+                let label = AX.buttonLabel(element) ?? "<nil>"
+                buttons.append(label)
+                return false
+            })
+            Self.log.info("pressButton: window[\(wi)] buttons=\(buttons)")
             if let button = AX.find(window, where: { element in
                 guard AX.role(element) == kAXButtonRole as String else { return false }
-                guard let title = AX.title(element) else { return false }
-                return titles.contains { title.localizedCaseInsensitiveContains($0) }
+                guard let label = AX.buttonLabel(element) else { return false }
+                return titles.contains { label.localizedCaseInsensitiveContains($0) }
             }) {
                 if AX.press(button) { return }
                 Self.log.error("button press returned false for titles=\(titles)")
@@ -150,18 +187,43 @@ public final class AccessibilityVpnController: VpnControlling {
         throw VpnControlError.buttonNotFound(titles.joined(separator: " / "))
     }
 
-    private func fillPortalIfConfigured(in appElement: AXUIElement) {
+    @discardableResult
+    private func pressOptionsMenuItem(_ item: String, in appElement: AXUIElement) throws {
+        for window in panelWindows(appElement) {
+            guard let menu = AX.find(window, where: { AX.role($0) == kAXPopUpButtonRole as String }) else { continue }
+            guard AX.press(menu) else { continue }
+            // Give the menu time to open
+            Thread.sleep(forTimeInterval: 0.2)
+            // The menu items appear as children of the popup button or its menu child
+            func findMenuItem(_ root: AXUIElement) -> AXUIElement? {
+                AX.findNode(root, children: AX.children) {
+                    AX.role($0) == kAXMenuItemRole as String &&
+                    (AX.title($0) ?? "").localizedCaseInsensitiveContains(item)
+                }
+            }
+            if let menuItem = findMenuItem(menu) {
+                if AX.press(menuItem) {
+                    Self.log.info("pressed menu item '\(item)'")
+                    return
+                }
+            }
+        }
+        throw VpnControlError.buttonNotFound(item)
+    }
+
+    private func fillPortalIfConfigured(in appElement: AXUIElement) -> Bool {
         let addr = portalAddress()
-        guard !addr.isEmpty else { return }
+        guard !addr.isEmpty else { return false }
         for window in panelWindows(appElement) {
             if let field = AX.find(window, where: { element in
                 AX.role(element) == kAXTextFieldRole as String
             }) {
                 _ = AX.setValue(field, addr)
                 Self.log.info("filled portal address")
-                return
+                return true
             }
         }
+        return false
     }
 
     private func fillDisconnectCommentAndConfirm(in appElement: AXUIElement) {

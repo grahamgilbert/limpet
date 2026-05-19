@@ -36,6 +36,13 @@ enum AX {
         string(element, kAXTitleAttribute as String)
     }
 
+    /// Title with value fallback — some GP buttons (e.g. in the Connection Failed
+    /// web-rendered screen) expose their label in kAXValueAttribute rather than
+    /// kAXTitleAttribute.
+    static func buttonLabel(_ element: AXUIElement) -> String? {
+        title(element) ?? value(element)
+    }
+
     static func value(_ element: AXUIElement) -> String? {
         string(element, kAXValueAttribute as String)
     }
