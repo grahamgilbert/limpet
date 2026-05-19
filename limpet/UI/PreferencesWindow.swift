@@ -49,19 +49,10 @@ struct PreferencesWindow: View {
             }
 
             Section("GlobalProtect Portal") {
-                LabeledContent("Portal address") {
+                VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
-                        TextField("e.g. vpn.example.com", text: $preferences.portalAddress)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 220)
-                            .onChange(of: preferences.portalAddress) {
-                                portalSavedTask?.cancel()
-                                portalSaved = true
-                                portalSavedTask = Task {
-                                    try? await Task.sleep(for: .seconds(2))
-                                    if !Task.isCancelled { portalSaved = false }
-                                }
-                            }
+                        Text("Portal address")
+                        Spacer()
                         if portalSaved {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
@@ -69,6 +60,16 @@ struct PreferencesWindow: View {
                         }
                     }
                     .animation(.easeInOut(duration: 0.2), value: portalSaved)
+                    TextField("e.g. vpn.example.com", text: $preferences.portalAddress)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: preferences.portalAddress) {
+                            portalSavedTask?.cancel()
+                            portalSaved = true
+                            portalSavedTask = Task {
+                                try? await Task.sleep(for: .seconds(2))
+                                if !Task.isCancelled { portalSaved = false }
+                            }
+                        }
                 }
                 Text("When set, limpet pre-fills this portal before connecting so GlobalProtect's focus grab cannot interrupt your typing. Leave blank to let GlobalProtect use its own saved portal.")
                     .font(.caption)
