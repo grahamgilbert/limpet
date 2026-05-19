@@ -22,6 +22,7 @@ public final class Preferences {
     fileprivate nonisolated static let desiredOnKey = "limpet.desiredOn"
     public nonisolated static let dismissPopupsKey = "limpet.dismissPopups"
     public nonisolated static let installPrereleasesKey = "limpet.installPrereleases"
+    public nonisolated static let portalAddressKey = "limpet.portalAddress"
     fileprivate nonisolated static let hasLaunchedBeforeKey = "limpet.hasLaunchedBefore"
 
     public var desiredOn: Bool {
@@ -40,6 +41,14 @@ public final class Preferences {
     /// defaults to false (opt-in), so no explicit seed is needed in init.
     public var installPrereleases: Bool {
         didSet { defaults.set(installPrereleases, forKey: Self.installPrereleasesKey) }
+    }
+
+    /// Optional GlobalProtect portal address (e.g. "vpn.example.com").
+    /// When non-empty, limpet fills this in before pressing Connect so the user
+    /// does not need to type it and GP's focus grab can't corrupt it.
+    /// Disabled by default (empty string = let GP use its own saved portal).
+    public var portalAddress: String {
+        didSet { defaults.set(portalAddress, forKey: Self.portalAddressKey) }
     }
 
     /// `true` once limpet has successfully launched at least once.
@@ -96,6 +105,7 @@ public final class Preferences {
         self.desiredOn = defaults.bool(forKey: Self.desiredOnKey)
         self.dismissPopups = defaults.bool(forKey: Self.dismissPopupsKey)
         self.installPrereleases = defaults.bool(forKey: Self.installPrereleasesKey)
+        self.portalAddress = defaults.string(forKey: Self.portalAddressKey) ?? ""
 
         // First-launch defaults: opt the user into Start at Login on the very
         // first run so the VPN watchdog actually keeps the VPN up across

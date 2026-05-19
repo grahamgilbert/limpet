@@ -34,21 +34,32 @@ public final class AccessibilityVpnController: VpnControlling {
     private static let bundleID = GlobalProtectInstallation.bundleID
 
     private let disconnectComment: String
+    /// Returns the portal address to pre-fill before connecting, or empty to skip.
+    private let portalAddress: @MainActor () -> String
     private let verifier = GPCodeSignatureVerifier()
 
-    public init(disconnectComment: String = "limpet user toggle") {
+    public init(
+        disconnectComment: String = "limpet user toggle",
+        portalAddress: @escaping @MainActor () -> String = { "" }
+    ) {
         self.disconnectComment = disconnectComment
+        self.portalAddress = portalAddress
     }
 
     public func connect() async throws {
         Self.log.info("connect: requested")
+        let previousApp = NSWorkspace.shared.frontmostApplication
+        defer { previousApp?.activate() }
         let appElement = try await openPopoverIfNeeded()
+        fillPortalIfConfigured(in: appElement)
         try pressButton(matching: ["Connect", "Enable", "Reconnect"], in: appElement)
         Self.log.info("connect: button pressed")
     }
 
     public func disconnect() async throws {
         Self.log.info("disconnect: requested")
+        let previousApp = NSWorkspace.shared.frontmostApplication
+        defer { previousApp?.activate() }
         let appElement = try await openPopoverIfNeeded()
         try pressButton(matching: ["Disconnect", "Disable"], in: appElement)
         Self.log.info("disconnect: button pressed")
@@ -79,7 +90,11 @@ public final class AccessibilityVpnController: VpnControlling {
     private func openPopoverIfNeeded() async throws -> AXUIElement {
         let app = try verifiedGPApp()
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        if !AX.windows(appElement).isEmpty {
+        // Only non-dialog windows indicate the status-item popover is open.
+        // After sleep/wake GP often shows a disconnection alert (AXDialog subrole)
+        // before the popover has been opened; treating that alert as "popover open"
+        // causes pressButton to search the alert and fail to find Connect.
+        if !panelWindows(appElement).isEmpty {
             Self.log.info("popover already open")
             return appElement
         }
@@ -87,8 +102,8 @@ public final class AccessibilityVpnController: VpnControlling {
         try clickStatusItem(appElement: appElement, verifiedApp: app)
         for attempt in 0..<20 {
             try? await Task.sleep(for: .milliseconds(100))
-            let windows = AX.windows(appElement)
-            Self.log.debug("popoverIsOpen: \(windows.count) GP windows")
+            let windows = panelWindows(appElement)
+            Self.log.debug("popoverIsOpen: \(windows.count) GP panel windows")
             if !windows.isEmpty {
                 Self.log.info("popover opened after \(attempt + 1) polls")
                 return appElement
@@ -96,6 +111,10 @@ public final class AccessibilityVpnController: VpnControlling {
         }
         Self.log.error("popover did not open within 2s")
         throw VpnControlError.popoverDidNotOpen
+    }
+
+    private func panelWindows(_ appElement: AXUIElement) -> [AXUIElement] {
+        AX.windows(appElement).filter { !GPWindowParser.isDialog(window: $0, using: .live) }
     }
 
     // GP's menu extra is only reachable via kAXExtrasMenuBarAttribute on the GP
@@ -129,6 +148,20 @@ public final class AccessibilityVpnController: VpnControlling {
         }
         Self.log.error("no button matching \(titles) in any GP window")
         throw VpnControlError.buttonNotFound(titles.joined(separator: " / "))
+    }
+
+    private func fillPortalIfConfigured(in appElement: AXUIElement) {
+        let addr = portalAddress()
+        guard !addr.isEmpty else { return }
+        for window in panelWindows(appElement) {
+            if let field = AX.find(window, where: { element in
+                AX.role(element) == kAXTextFieldRole as String
+            }) {
+                _ = AX.setValue(field, addr)
+                Self.log.info("filled portal address")
+                return
+            }
+        }
     }
 
     private func fillDisconnectCommentAndConfirm(in appElement: AXUIElement) {

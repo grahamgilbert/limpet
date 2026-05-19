@@ -7,6 +7,8 @@ import ServiceManagement
 struct PreferencesWindow: View {
     @Bindable var preferences: Preferences
     @Bindable var updater: Updater
+    @State private var portalSaved = false
+    @State private var portalSavedTask: Task<Void, Never>?
 
     var body: some View {
         Form {
@@ -44,6 +46,34 @@ struct PreferencesWindow: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
+            }
+
+            Section("GlobalProtect Portal") {
+                LabeledContent("Portal address") {
+                    HStack(spacing: 6) {
+                        TextField("e.g. vpn.example.com", text: $preferences.portalAddress)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 220)
+                            .onChange(of: preferences.portalAddress) {
+                                portalSavedTask?.cancel()
+                                portalSaved = true
+                                portalSavedTask = Task {
+                                    try? await Task.sleep(for: .seconds(2))
+                                    if !Task.isCancelled { portalSaved = false }
+                                }
+                            }
+                        if portalSaved {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                                .transition(.opacity)
+                        }
+                    }
+                    .animation(.easeInOut(duration: 0.2), value: portalSaved)
+                }
+                Text("When set, limpet pre-fills this portal before connecting so GlobalProtect's focus grab cannot interrupt your typing. Leave blank to let GlobalProtect use its own saved portal.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Section("Updates") {
