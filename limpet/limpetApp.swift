@@ -22,7 +22,9 @@ struct limpetApp: App {
         let appState = AppState()
         let notifier = SystemLoginItemNotifier()
         let preferences = Preferences(notifier: notifier)
-        let controller = AccessibilityVpnController()
+        let controller = AccessibilityVpnController(
+            portalAddress: { UserDefaults.standard.string(forKey: Preferences.portalAddressKey) ?? "" }
+        )
         let monitor = VpnStatusMonitor()
         let updater = Updater(wantsPrereleases: { UserDefaults.standard.bool(forKey: Preferences.installPrereleasesKey) })
 
