@@ -67,7 +67,8 @@ struct PreferencesWindow: View {
                             portalSaved = true
                             portalSavedTask = Task {
                                 try? await Task.sleep(for: .seconds(2))
-                                if !Task.isCancelled { portalSaved = false }
+                                guard !Task.isCancelled else { return }
+                                portalSaved = false
                             }
                         }
                 }
@@ -108,6 +109,7 @@ struct PreferencesWindow: View {
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
         .padding()
+        .onDisappear { portalSavedTask?.cancel() }
     }
 
     private var versionString: String {
