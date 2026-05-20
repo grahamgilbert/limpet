@@ -162,9 +162,19 @@
             <sparkle:releaseNotesLink sparkle:edSignature="2ioealfrdwk3O4HYrwvJzTWWNbNfPGs88ivR1sBbVbr66FOJhHveYHaxjcs6RiDQRoaynaYFvwcvdEuAziDlDg==" length="319">https://github.com/grahamgilbert/limpet/releases/download/v0.3.0/release-notes-0.3.0.html</sparkle:releaseNotesLink>
             <enclosure url="https://github.com/grahamgilbert/limpet/releases/download/v0.3.0/limpet-0.3.0.dmg" sparkle:edSignature="UA3wkaLLcy1L4NC2Z2YJVkXAx0bOvgcyw/S7aZgFW7Yu+TGpTkZiqyJvnfgOQ0vcPnWc/V4zHdnAxjhl/efpCA==" length="2203282" type="application/octet-stream"/>
         </item>
+            <item>
+            <title>Version 0.3.1</title>
+            <pubDate>Wed, 20 May 2026 19:11:23 +0000</pubDate>
+            <sparkle:version>82</sparkle:version>
+            <sparkle:shortVersionString>0.3.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <link>https://github.com/grahamgilbert/limpet/releases/tag/v0.3.1</link>
+            <sparkle:releaseNotesLink sparkle:edSignature="XhzwBXLVr0lKpU1oMOCPcxBNdSSXBBN5Au+X7Ki4RwfL/aGzD6NPiaQvZSOMXZvH81g67sm8dtTEBlqxZO4zBw==" length="445">https://github.com/grahamgilbert/limpet/releases/download/v0.3.1/release-notes-0.3.1.html</sparkle:releaseNotesLink>
+            <enclosure url="https://github.com/grahamgilbert/limpet/releases/download/v0.3.1/limpet-0.3.1.dmg" sparkle:edSignature="oQw33KtaCQGH+1vK9pJpE7ZgCeIWS46gL32Ziz7lQ71sWfav/II7pEvC9zNepCLyvwLAaG7gGMROmWpnimPtDw==" length="2213980" type="application/octet-stream"/>
+        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: jUNrkWH0wAOuV0hiblcFZ35UVUafO9rOyU7GYn1d12x5bl5qR2yV6XFshehAPCF5hR/eJZx4k+rpPWKwdbXDBQ==
-length: 14152
+edSignature: LMX1d5VEWvvbAMr5CXIbSWnhJ9ahCBekGmWKYDPNFinku3iT2PDRLCHVfEDg/Fn2uXXCFCmwtoNDQmro4px6BA==
+length: 15131
 -->
