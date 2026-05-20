@@ -71,7 +71,7 @@ public final class AccessibilityVpnController: VpnControlling {
             Self.log.info("connect: button pressed")
         } catch {
             Self.log.info("connect: no Connect button, trying Refresh Connection via options menu")
-            try pressOptionsMenuItem("Refresh Connection", in: appElement)
+            try await pressOptionsMenuItem("Refresh Connection", in: appElement)
             Self.log.info("connect: Refresh Connection pressed")
         }
     }
@@ -134,13 +134,12 @@ public final class AccessibilityVpnController: VpnControlling {
     }
 
     /// Returns the GP status-item panel window(s).
-    /// The panel has subrole AXSystemDialog and no title.
-    /// We exclude AXDialog (alert popups) and the persistent Settings window.
+    /// Excludes AXDialog alert popups (disconnection alerts, session-timeout alerts)
+    /// which appear before the panel is open and must not be treated as the panel.
+    /// AXSystemDialog is kept because the GP panel itself uses that subrole.
     private func panelWindows(_ appElement: AXUIElement) -> [AXUIElement] {
         AX.windows(appElement).filter {
-            let subrole = AX.subrole($0) ?? ""
-            let title = AX.title($0) ?? ""
-            return subrole == (kAXSystemDialogSubrole as String) && title.isEmpty
+            (AX.subrole($0) ?? "") != (kAXDialogSubrole as String)
         }
     }
 
@@ -166,19 +165,19 @@ public final class AccessibilityVpnController: VpnControlling {
         let windows = AX.windows(appElement)
         Self.log.info("pressButton: \(windows.count) windows to search")
         for (wi, window) in windows.enumerated() {
-            var buttons: [String] = []
+            var allLabels: [String] = []
+            var matchedButton: AXUIElement?
             _ = AX.find(window, where: { element in
                 guard AX.role(element) == kAXButtonRole as String else { return false }
                 let label = AX.buttonLabel(element) ?? "<nil>"
-                buttons.append(label)
+                allLabels.append(label)
+                if matchedButton == nil && titles.contains(where: { label.localizedCaseInsensitiveContains($0) }) {
+                    matchedButton = element
+                }
                 return false
             })
-            Self.log.info("pressButton: window[\(wi)] buttons=\(buttons)")
-            if let button = AX.find(window, where: { element in
-                guard AX.role(element) == kAXButtonRole as String else { return false }
-                guard let label = AX.buttonLabel(element) else { return false }
-                return titles.contains { label.localizedCaseInsensitiveContains($0) }
-            }) {
+            Self.log.info("pressButton: window[\(wi)] buttons=\(allLabels)")
+            if let button = matchedButton {
                 if AX.press(button) { return }
                 Self.log.error("button press returned false for titles=\(titles)")
             }
@@ -188,20 +187,15 @@ public final class AccessibilityVpnController: VpnControlling {
     }
 
     @discardableResult
-    private func pressOptionsMenuItem(_ item: String, in appElement: AXUIElement) throws {
+    private func pressOptionsMenuItem(_ item: String, in appElement: AXUIElement) async throws {
         for window in panelWindows(appElement) {
             guard let menu = AX.find(window, where: { AX.role($0) == kAXPopUpButtonRole as String }) else { continue }
             guard AX.press(menu) else { continue }
-            // Give the menu time to open
-            Thread.sleep(forTimeInterval: 0.2)
-            // The menu items appear as children of the popup button or its menu child
-            func findMenuItem(_ root: AXUIElement) -> AXUIElement? {
-                AX.findNode(root, children: AX.children) {
-                    AX.role($0) == kAXMenuItemRole as String &&
-                    (AX.title($0) ?? "").localizedCaseInsensitiveContains(item)
-                }
-            }
-            if let menuItem = findMenuItem(menu) {
+            try? await Task.sleep(for: .milliseconds(200))
+            if let menuItem = AX.findNode(menu, children: AX.children, where: {
+                AX.role($0) == kAXMenuItemRole as String &&
+                (AX.title($0) ?? "").localizedCaseInsensitiveContains(item)
+            }) {
                 if AX.press(menuItem) {
                     Self.log.info("pressed menu item '\(item)'")
                     return
@@ -237,8 +231,8 @@ public final class AccessibilityVpnController: VpnControlling {
             }
             if let okButton = AX.find(window, where: { element in
                 guard AX.role(element) == kAXButtonRole as String else { return false }
-                guard let title = AX.title(element) else { return false }
-                return ["OK", "Continue", "Disconnect"].contains(title)
+                guard let label = AX.buttonLabel(element) else { return false }
+                return ["OK", "Continue", "Disconnect"].contains(label)
             }) {
                 _ = AX.press(okButton)
                 Self.log.info("pressed OK on disconnect sheet")
