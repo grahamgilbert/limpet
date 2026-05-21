@@ -13,13 +13,15 @@ struct GPFakeNode {
     var value: String?
     var title: String?
     var children: [GPFakeNode]
+    var isMinimizable: Bool
 
-    init(role: String? = nil, subrole: String? = nil, value: String? = nil, title: String? = nil, children: [GPFakeNode] = []) {
+    init(role: String? = nil, subrole: String? = nil, value: String? = nil, title: String? = nil, children: [GPFakeNode] = [], isMinimizable: Bool = false) {
         self.role = role
         self.subrole = subrole
         self.value = value
         self.title = title
         self.children = children
+        self.isMinimizable = isMinimizable
     }
 }
 
@@ -29,7 +31,8 @@ extension GPWindowAccessors where Node == GPFakeNode {
         subrole: { $0.subrole },
         value: { $0.value },
         title: { $0.title },
-        children: { $0.children }
+        children: { $0.children },
+        isMinimizable: { $0.isMinimizable }
     )
 }
 
@@ -136,34 +139,40 @@ struct GPWindowParserBodyTests {
 @Suite("GPWindowParser — isDialog")
 struct GPWindowParserIsDialogTests {
 
+    @Test("AXSystemDialog subrole is rejected — this is the GP status-item panel, not a popup")
+    func axSystemDialogRejected() {
+        let window = GPFakeNode(subrole: "AXSystemDialog")
+        #expect(GPWindowParser.isDialog(window: window, using: .fake) == false)
+    }
+
     @Test("AXDialog subrole is accepted")
     func axDialogAccepted() {
         let window = GPFakeNode(subrole: "AXDialog")
         #expect(GPWindowParser.isDialog(window: window, using: .fake) == true)
     }
 
-    @Test("AXSystemDialog subrole is accepted")
-    func axSystemDialogAccepted() {
-        let window = GPFakeNode(subrole: "AXSystemDialog")
+    @Test("AXStandardWindow non-minimizable is accepted — disconnection alerts use this subrole")
+    func standardWindowAlertAccepted() {
+        let window = GPFakeNode(subrole: "AXStandardWindow", isMinimizable: false)
         #expect(GPWindowParser.isDialog(window: window, using: .fake) == true)
     }
 
-    @Test("AXStandardWindow subrole is rejected — main app window must not be dismissed")
-    func standardWindowRejected() {
-        let window = GPFakeNode(subrole: "AXStandardWindow")
+    @Test("AXStandardWindow minimizable is rejected — this is the main GP app window")
+    func standardWindowMainAppRejected() {
+        let window = GPFakeNode(subrole: "AXStandardWindow", isMinimizable: true)
         #expect(GPWindowParser.isDialog(window: window, using: .fake) == false)
     }
 
-    @Test("nil subrole is rejected")
-    func nilSubroleRejected() {
-        let window = GPFakeNode(subrole: nil)
-        #expect(GPWindowParser.isDialog(window: window, using: .fake) == false)
+    @Test("nil subrole non-minimizable is accepted")
+    func nilSubroleAccepted() {
+        let window = GPFakeNode(subrole: nil, isMinimizable: false)
+        #expect(GPWindowParser.isDialog(window: window, using: .fake) == true)
     }
 
-    @Test("unknown subrole is rejected")
-    func unknownSubroleRejected() {
-        let window = GPFakeNode(subrole: "AXFloatingWindow")
-        #expect(GPWindowParser.isDialog(window: window, using: .fake) == false)
+    @Test("unknown subrole non-minimizable is accepted")
+    func unknownSubroleAccepted() {
+        let window = GPFakeNode(subrole: "AXFloatingWindow", isMinimizable: false)
+        #expect(GPWindowParser.isDialog(window: window, using: .fake) == true)
     }
 }
 

@@ -16,6 +16,7 @@ struct GPWindowAccessors<Node>: @unchecked Sendable {
     let value: (Node) -> String?
     let title: (Node) -> String?
     let children: (Node) -> [Node]
+    let isMinimizable: (Node) -> Bool
 }
 
 extension GPWindowAccessors where Node == AXUIElement {
@@ -24,20 +25,21 @@ extension GPWindowAccessors where Node == AXUIElement {
         subrole: AX.subrole,
         value: AX.value,
         title: AX.title,
-        children: AX.children
+        children: AX.children,
+        isMinimizable: { AX.attribute($0, kAXMinimizeButtonAttribute as String, as: AXUIElement.self) != nil }
     )
 }
 
 enum GPWindowParser {
-    private static let dialogSubroles: Set<String> = [
-        kAXDialogSubrole as String,
-        kAXSystemDialogSubrole as String,
-    ]
-
-    /// Returns true if the window's subrole is a dialog type (AXDialog or AXSystemDialog).
-    /// Filters out the main GP application window, which carries AXStandardWindow.
+    /// Returns true if this window is a dismissable popup.
+    ///
+    /// Excludes two window types that must never be auto-dismissed:
+    /// - AXSystemDialog: the GP status-item panel (pressing its button closes the panel mid-connect)
+    /// - Minimizable windows: the main GP app window (AXStandardWindow with a minimize button);
+    ///   alert popups are never minimizable, so this reliably distinguishes app windows from alerts.
     static func isDialog<N>(window: N, using ax: GPWindowAccessors<N>) -> Bool {
-        dialogSubroles.contains(ax.subrole(window) ?? "")
+        (ax.subrole(window) ?? "") != (kAXSystemDialogSubrole as String)
+            && !ax.isMinimizable(window)
     }
 
     /// Returns the window title, falling back to the first top-level
