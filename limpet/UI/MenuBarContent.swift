@@ -4,6 +4,34 @@
 import SwiftUI
 import AppKit
 
+/// Pure presentation logic for the VPN toggle row, factored out of the SwiftUI
+/// view so it can be unit-tested without instantiating the view.
+struct VPNToggleState: Equatable {
+    // swiftlint:disable discouraged_optional_boolean
+    /// The user's optimistic intent while a manual connect/disconnect is in
+    /// flight; `nil` when no manual action is pending.
+    let pendingDesiredOn: Bool?
+    // swiftlint:enable discouraged_optional_boolean
+    let connection: ConnectionState
+
+    /// Whether the connection counts as "on" for the toggle's real state.
+    var connectionIsOn: Bool {
+        switch connection {
+        case .connected, .connecting: true
+        case .disconnected, .disabled, .unknown: false
+        }
+    }
+
+    /// The toggle position to display: optimistic intent wins over reality
+    /// until reality catches up or the pending action times out.
+    var displayedOn: Bool { pendingDesiredOn ?? connectionIsOn }
+
+    /// Whether to show the inline spinner: either a manual action is in flight,
+    /// or GP is actively connecting (e.g. a watchdog-driven reconnect, which has
+    /// no pending manual intent but should still show progress).
+    var isPending: Bool { pendingDesiredOn != nil || connection == .connecting }
+}
+
 struct MenuBarContent: View {
     @Bindable var appState: AppState
     @Bindable var preferences: Preferences
@@ -20,16 +48,13 @@ struct MenuBarContent: View {
     @State private var pendingDesiredOn: Bool?
     @State private var pendingTask: Task<Void, Never>?
 
-    private var connectionIsOn: Bool {
-        switch appState.connection {
-        case .connected, .connecting: true
-        case .disconnected, .disabled, .unknown: false
-        }
+    private var toggleState: VPNToggleState {
+        VPNToggleState(pendingDesiredOn: pendingDesiredOn, connection: appState.connection)
     }
 
-    private var displayedToggle: Bool {
-        pendingDesiredOn ?? connectionIsOn
-    }
+    private var connectionIsOn: Bool { toggleState.connectionIsOn }
+
+    private var displayedToggle: Bool { toggleState.displayedOn }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -92,7 +117,7 @@ struct MenuBarContent: View {
 
             VPNToggleRow(
                 displayedOn: displayedToggle,
-                isPending: pendingDesiredOn != nil,
+                isPending: toggleState.isPending,
                 onChangeRequested: { newValue in
                     preferences.desiredOn = newValue
                     triggerToggle(to: newValue)

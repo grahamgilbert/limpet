@@ -2,58 +2,30 @@
 // Version 2.0. See LICENSE in the repo root for details.
 
 import Foundation
-import Network
 import OSLog
 
 /// The default GP log path on macOS.
 public let panGPSLogPath = "/Library/Logs/PaloAltoNetworks/GlobalProtect/PanGPS.log"
 
-/// The network interface name that GlobalProtect creates when connected.
-public let gpInterfaceName = "gpd0"
-
-// MARK: - Interface observation
-
-/// Emits `true` when the GP VPN interface is present, `false` when it is absent.
-/// Using `NWPathMonitor` means zero CPU overhead while the interface is stable.
-public protocol VpnInterfaceObserving: Sendable {
-    var changes: AsyncStream<Bool> { get }
-    func start()
-    func cancel()
-}
-
-/// Live implementation backed by `NWPathMonitor`.
-public final class NWVpnInterfaceObserver: VpnInterfaceObserving, @unchecked Sendable {
-    public let changes: AsyncStream<Bool>
-    private let continuation: AsyncStream<Bool>.Continuation
-    private let monitor: NWPathMonitor
-
-    public init(interfaceName: String = gpInterfaceName) {
-        var cont: AsyncStream<Bool>.Continuation!
-        self.changes = AsyncStream(bufferingPolicy: .bufferingNewest(1)) { cont = $0 }
-        self.continuation = cont
-        self.monitor = NWPathMonitor()
-
-        let cont2 = cont!
-        let name = interfaceName
-        monitor.pathUpdateHandler = { path in
-            let present = path.availableInterfaces.contains { $0.name == name }
-            cont2.yield(present)
-        }
-    }
-
-    public func start() { monitor.start(queue: .global(qos: .utility)) }
-    public func cancel() { monitor.cancel(); continuation.finish() }
-}
-
 // MARK: - Status monitor
 
-/// Monitors GlobalProtect VPN state using `NWPathMonitor` as the primary
-/// signal and the GP log file only during disconnection / reconnect windows.
+/// Tails `PanGPS.log`, parses every line through `parsePanGPSLine`,
+/// and emits **transitions** in `ConnectionState` over an `AsyncStream`.
 ///
-/// **Steady state (connected):** `NWPathMonitor` is dormant — zero file I/O.
-/// **During reconnect:** polls `PanGPS.log` every `pollInterval` to
-/// distinguish `.connecting` (GP retrying) from `.disconnected` (GP gave up).
-/// As soon as the `gpd0` interface reappears, log polling stops immediately.
+/// GP's log is the authoritative source of VPN state: its
+/// `IsConnected()` / `IsVPNInRetry()` / `m_bAgentEnabled` flags flip correctly
+/// even when the `gpd0` interface lingers during a reconnect, so tailing the
+/// log detects drops and retries that mere interface presence would miss.
+///
+/// Identical states are deduplicated — flipping the same flag values every
+/// second produces zero stream events.
+///
+/// Handles log rotation by reopening when the file's inode changes. If the
+/// path is unreadable at startup, emits `.unknown` once and keeps polling.
+///
+/// Uses a `DispatchSourceFileSystemObject` to wake only on actual file
+/// activity (writes, rotations). A safety poll backstop catches any events
+/// the kernel drops.
 public final class VpnStatusMonitor: VpnStatusStreaming, @unchecked Sendable {
     public let stream: AsyncStream<ConnectionState>
     private let continuation: AsyncStream<ConnectionState>.Continuation
@@ -61,8 +33,8 @@ public final class VpnStatusMonitor: VpnStatusStreaming, @unchecked Sendable {
 
     public init(
         path: String = panGPSLogPath,
-        pollInterval: Duration = .seconds(2),
-        observer: VpnInterfaceObserving = NWVpnInterfaceObserver()
+        time: TimeSource = SystemTimeSource(),
+        pollInterval: Duration = .seconds(10)
     ) {
         var cont: AsyncStream<ConnectionState>.Continuation!
         self.stream = AsyncStream { cont = $0 }
@@ -72,8 +44,8 @@ public final class VpnStatusMonitor: VpnStatusStreaming, @unchecked Sendable {
         self.task = Task.detached {
             await Self.runLoop(
                 path: path,
-                pollInterval: pollInterval,
-                observer: observer,
+                time: time,
+                safetyInterval: pollInterval,
                 continuation: continuation
             )
         }
@@ -88,15 +60,13 @@ public final class VpnStatusMonitor: VpnStatusStreaming, @unchecked Sendable {
 
     private static func runLoop(
         path: String,
-        pollInterval: Duration,
-        observer: VpnInterfaceObserving,
+        time: TimeSource,
+        safetyInterval: Duration,
         continuation: AsyncStream<ConnectionState>.Continuation
     ) async {
         var reader = LogReader(path: path)
         var lastEmitted: ConnectionState?
 
-        // Seed from the existing log tail so the UI shows the right state at
-        // launch without waiting for the first network event.
         if let seed = reader.seedFromExistingFile() {
             continuation.yield(seed)
             lastEmitted = seed
@@ -105,93 +75,76 @@ public final class VpnStatusMonitor: VpnStatusStreaming, @unchecked Sendable {
             lastEmitted = .unknown
         }
 
-        observer.start()
-        defer {
-            observer.cancel()
-            continuation.finish()
-        }
+        // Single wakeup channel fed by two sources: the DispatchSource (on
+        // real file activity) and a persistent safety-poll timer. Buffering is
+        // capped at 1 so write bursts coalesce into one wakeup instead of
+        // queuing up and busy-looping the drain.
+        let signal = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
 
-        // NWPathMonitor fires once immediately at startup with the current state.
-        var interfacePresent = false
-
-        // Drain the interface-change stream, but also wake periodically while
-        // the interface is absent so we can poll the log for reconnect state.
-        // We drive the loop with a single `for await` on the changes stream and
-        // use a separate background task to inject a synthetic `.pollTimerFired`
-        // event via a shared channel when the poll interval elapses.
-        let eventChannel = AsyncStream<MonitorEvent>.makeStream(bufferingPolicy: .bufferingNewest(4))
-
-        // Bridge interface changes into the event channel.
-        // Use withTaskCancellationHandler so cancellation is handled synchronously
-        // rather than via AsyncStream iterator teardown, which can trigger a Swift
-        // stdlib Range assertion on macOS 26 beta when cancelled concurrently.
-        let bridgeTask = Task {
-            await withTaskCancellationHandler {
-                for await present in observer.changes {
-                    eventChannel.continuation.yield(.interfaceChanged(present))
-                }
-                eventChannel.continuation.finish()
-            } onCancel: {
-                eventChannel.continuation.finish()
+        // Safety-poll backstop: a single long-lived timer that posts a wakeup
+        // every `safetyInterval` so we still make progress if the kernel drops
+        // a filesystem event or GP stops writing. Using one persistent timer —
+        // rather than re-racing a fresh task group each pass — avoids the
+        // busy-loop that arises from cancelling a live `AsyncStream` iterator.
+        let timerTask = Task {
+            while !Task.isCancelled {
+                try? await time.sleep(for: safetyInterval)
+                if Task.isCancelled { break }
+                signal.continuation.yield()
             }
         }
-        defer { bridgeTask.cancel() }
+        defer { timerTask.cancel() }
 
-        // Timer task: re-created whenever we need a poll tick.
-        var timerTask: Task<Void, Never>?
+        // Open the file with O_EVTONLY so we don't prevent log rotation, and
+        // remember the inode the source is watching so we can rebind after a
+        // rotation.
+        var sourceInode = inodeOf(path: path)
+        var fsSource: DispatchSourceFileSystemObject? = makeFSSource(
+            path: path,
+            signal: signal.continuation
+        )
+        defer { fsSource?.cancel() }
 
-        func scheduleTimer() {
-            timerTask?.cancel()
-            timerTask = Task {
-                try? await Task.sleep(for: pollInterval)
-                if !Task.isCancelled {
-                    eventChannel.continuation.yield(.pollTimerFired)
-                }
+        for await _ in signal.stream {
+            if Task.isCancelled { break }
+
+            for state in reader.consumeAppended() where state != lastEmitted {
+                continuation.yield(state)
+                lastEmitted = state
             }
-        }
 
-        // Start a timer immediately since we don't know the initial interface
-        // state until the first event arrives.
-        scheduleTimer()
-
-        for await event in eventChannel.stream {
-            guard !Task.isCancelled else { break }
-
-            switch event {
-            case .interfaceChanged(let present):
-                interfacePresent = present
-                if present {
-                    timerTask?.cancel()
-                    timerTask = nil
-                    if lastEmitted != .connected {
-                        continuation.yield(.connected)
-                        lastEmitted = .connected
-                    }
-                } else {
-                    // Interface just went down — read log immediately, then schedule polling.
-                    for state in reader.consumeAppended() where state != lastEmitted {
-                        continuation.yield(state)
-                        lastEmitted = state
-                    }
-                    scheduleTimer()
-                }
-            case .pollTimerFired:
-                if !interfacePresent {
-                    for state in reader.consumeAppended() where state != lastEmitted {
-                        continuation.yield(state)
-                        lastEmitted = state
-                    }
-                    scheduleTimer()
-                }
+            // Rebind the DispatchSource whenever the file at `path` is no
+            // longer the inode the source was opened on — this covers rotation
+            // and the file first appearing. Comparing against the source's own
+            // inode (rather than a before/after bracket around consume) also
+            // catches atomic rotations where the replacement file already
+            // exists by the time we run.
+            let currentInode = inodeOf(path: path)
+            if currentInode != sourceInode {
+                fsSource?.cancel()
+                fsSource = makeFSSource(path: path, signal: signal.continuation)
+                sourceInode = currentInode
             }
         }
 
-        timerTask?.cancel()
+        continuation.finish()
     }
 
-    private enum MonitorEvent {
-        case interfaceChanged(Bool)
-        case pollTimerFired
+    private static func makeFSSource(
+        path: String,
+        signal: AsyncStream<Void>.Continuation
+    ) -> DispatchSourceFileSystemObject? {
+        let fd = open(path, O_RDONLY | O_EVTONLY)
+        guard fd >= 0 else { return nil }
+        let src = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.write, .extend, .rename, .delete],
+            queue: .global(qos: .utility)
+        )
+        src.setEventHandler { signal.yield() }
+        src.setCancelHandler { close(fd) }
+        src.resume()
+        return src
     }
 }
 
@@ -231,6 +184,12 @@ struct LogReader {
                 lastState = s
             }
         }
+        // Advance the read handle to the current end so consumeAppended() starts
+        // exactly where this seed left off. openSeekingToEnd() ran at init (T0),
+        // but this seed runs later (T1); without re-seeking, anything GP wrote in
+        // [T0, T1] would be replayed as fresh transitions on the first wakeup
+        // (e.g. a spurious disconnect flash for a drop that already recovered).
+        try? handle?.seekToEnd()
         return lastState
     }
 
