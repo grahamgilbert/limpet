@@ -1,8 +1,35 @@
 // Copyright 2026 Graham Gilbert. Licensed under the Apache License,
 // Version 2.0. See LICENSE in the repo root for details.
 
+import ApplicationServices
+import Foundation
 import Testing
 @testable import limpet
+
+@Suite("AX messaging timeout")
+struct AXMessagingTimeoutTests {
+    @Test("timeout is a bounded, non-zero value")
+    func timeoutIsSane() {
+        // A timeout of 0 silently reverts AX messaging to the unbounded default —
+        // the exact main-thread freeze this guards against. Keep it small + positive.
+        #expect(AX.messagingTimeout > 0)
+        #expect(AX.messagingTimeout <= 10)
+    }
+
+    @Test("appElement produces a reference the messaging API accepts")
+    func appElementIsValid() {
+        let element = AX.appElement(getpid())
+        // No public getter exists for the messaging timeout, so re-setting it is
+        // the only observable proof that appElement returned a valid AX reference.
+        #expect(AXUIElementSetMessagingTimeout(element, AX.messagingTimeout) == .success)
+    }
+
+    @Test("setGlobalMessagingTimeout applies without error")
+    func globalTimeoutApplies() {
+        AX.setGlobalMessagingTimeout()
+        #expect(AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), AX.messagingTimeout) == .success)
+    }
+}
 
 @Suite("AX.findNode")
 struct AXHelpersTests {

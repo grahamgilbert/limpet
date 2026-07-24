@@ -109,7 +109,7 @@ public final class AccessibilityVpnController: VpnControlling {
     /// Returns the AXUIElement for the GP app, ready for all subsequent AX calls.
     private func openPopoverIfNeeded() async throws -> AXUIElement {
         let app = try verifiedGPApp()
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let appElement = AX.appElement(app.processIdentifier)
         // Only non-dialog windows indicate the status-item popover is open.
         // After sleep/wake GP often shows a disconnection alert (AXDialog subrole)
         // before the popover has been opened; treating that alert as "popover open"
