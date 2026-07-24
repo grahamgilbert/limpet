@@ -5,6 +5,28 @@ import ApplicationServices
 import Foundation
 
 enum AX {
+    // ponytail: fixed 2s; expose as a pref if some install proves consistently slower.
+    /// Upper bound, in seconds, on any single Accessibility call. Without this,
+    /// AX messaging to a hung GlobalProtect blocks the caller indefinitely — and
+    /// since the controller runs its AX calls on the main thread, that freezes
+    /// limpet's UI ("not responding"). 2s is generous for GP's normally-instant
+    /// AX replies while still bounding a hang.
+    static let messagingTimeout: Float = 2
+
+    /// Creates the AX element for a process and pins its messaging timeout.
+    /// Child elements copied from this app element inherit the timeout.
+    static func appElement(_ pid: pid_t) -> AXUIElement {
+        let element = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(element, messagingTimeout)
+        return element
+    }
+
+    /// Sets the process-wide default AX messaging timeout. Call once at launch so
+    /// any element that isn't derived from `appElement(_:)` is also bounded.
+    static func setGlobalMessagingTimeout() {
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), messagingTimeout)
+    }
+
     static func attribute<T>(_ element: AXUIElement, _ name: String, as type: T.Type = T.self) -> T? {
         var raw: AnyObject?
         let err = AXUIElementCopyAttributeValue(element, name as CFString, &raw)

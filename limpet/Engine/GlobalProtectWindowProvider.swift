@@ -109,7 +109,7 @@ public final class GlobalProtectWindowProvider: WindowProvider, @unchecked Senda
               verifier.verify(app: app) else {
             return []
         }
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let appElement = AX.appElement(app.processIdentifier)
         return AX.windows(appElement)
             .filter { GPWindowParser.isDialog(window: $0, using: .live) }
             .map { window in

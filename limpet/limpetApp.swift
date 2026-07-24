@@ -19,6 +19,10 @@ struct limpetApp: App {
 
     @MainActor
     init() {
+        // Bound every AX call process-wide so a hung GlobalProtect can never
+        // freeze limpet's main thread. Must run before any AX messaging starts.
+        AX.setGlobalMessagingTimeout()
+
         let appState = AppState()
         let notifier = SystemLoginItemNotifier()
         let preferences = Preferences(notifier: notifier)
