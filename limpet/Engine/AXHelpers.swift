@@ -127,18 +127,28 @@ public func openLoginItemsSettings() {
 /// macOS has no notification for TCC changes, so we poll. 5 seconds is
 /// imperceptible to the user — the permission window's `.onChange` already
 /// handles the fast path when it's open.
+///
+/// The poll runs **off** the main thread. `AXIsProcessTrustedWithOptions` is a
+/// synchronous XPC call into `tccd`, and unlike element messaging it is *not*
+/// bounded by `AXUIElementSetMessagingTimeout` — so if TCC or the accessibility
+/// subsystem stalls, polling it on the main actor parks the runloop and limpet
+/// goes "not responding" while its background work carries on as normal.
 @MainActor
 @Observable
 public final class AccessibilityTrustWatcher {
     public var isTrusted: Bool = AX.isProcessTrusted(prompt: false)
 
     public init() {
-        Task { [weak self] in
+        // Detached, so the blocking call lands on a background thread; the main
+        // actor is touched only to publish an actual change.
+        Task.detached(priority: .utility) { [weak self] in
             while true {
                 try? await Task.sleep(for: .seconds(5))
-                guard let self else { return }
                 let now = AX.isProcessTrusted(prompt: false)
-                if now != self.isTrusted { self.isTrusted = now }
+                guard let self else { return }
+                await MainActor.run {
+                    if now != self.isTrusted { self.isTrusted = now }
+                }
             }
         }
     }
