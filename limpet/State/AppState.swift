@@ -16,6 +16,10 @@ public final class AppState: StateSink {
 
     public nonisolated func update(_ state: ConnectionState) {
         Task { @MainActor in
+            // @Observable fires on every assignment, equal or not, and the
+            // watchdog re-reports the current state on a timer. Skip no-op
+            // writes so the menu bar isn't invalidated every tick.
+            guard self.connection != state else { return }
             self.connection = state
         }
     }

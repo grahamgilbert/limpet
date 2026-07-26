@@ -41,7 +41,13 @@ struct limpetApp: App {
         let stream = monitor.stream
         let dog = watchdog
         self.watchdogTask = Task.detached {
-            await dog.consume(stream)
+            // The status stream is deduplicated, so events alone are not enough
+            // to guarantee progress: a retry deferred by the settle window needs
+            // something to reconsider it once the window expires.
+            await withTaskGroup { group in
+                group.addTask { await dog.consume(stream) }
+                group.addTask { await dog.runPeriodicReconcile(every: .seconds(5)) }
+            }
         }
 
         let dismisser = PopupDismisserImpl(provider: GlobalProtectWindowProvider())

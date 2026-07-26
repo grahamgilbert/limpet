@@ -106,6 +106,51 @@ struct WatchdogTests {
         #expect(controller.connectCount == 2) // immediate, despite tiny gap
     }
 
+    @Test("flapping disconnected → connecting → disconnected does not bypass backoff")
+    func flappingDoesNotBypassBackoff() async {
+        // Wake-from-sleep signature: GP oscillates rather than sitting still.
+        // Each connect click opens GP's popover, so a click per flap reads to
+        // the user as a window flickering open and shut.
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true)
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 1)
+
+        // 5 flaps × 0.2s = 1.0s, comfortably inside the 2s initial backoff.
+        for _ in 0..<5 {
+            time.advance(by: 0.1)
+            await dog.handle(.connecting)   // GP tries
+            time.advance(by: 0.1)
+            await dog.handle(.disconnected) // ...and gives up again
+        }
+        #expect(controller.connectCount == 1, "backoff must survive intermediate transitions")
+
+        time.advance(by: 1.5) // t = 2.5s, past initialBackoff
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 2)
+    }
+
+    @Test("a retry blocked by the settle window is retried once the window expires")
+    func blockedRetryIsReconsidered() async {
+        // The state stream is deduplicated: if GP settles into .disconnected and
+        // stays there, no further events arrive. A retry that was blocked by the
+        // settle window must therefore be reconsidered on a timer, or the VPN
+        // stays down forever.
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true)
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 1)
+
+        time.advance(by: 0.1)
+        await dog.handle(.connecting)   // GP tries
+        time.advance(by: 0.1)
+        await dog.handle(.disconnected) // ...and gives up. Blocked by the window.
+        #expect(controller.connectCount == 1)
+
+        // No further stream events will ever arrive — GP just sits disconnected.
+        time.advance(by: 2.5)
+        await dog.reconcile()
+        #expect(controller.connectCount == 2, "timer-driven reconcile must retry the last state")
+    }
+
     @Test("desired-on .connecting does not click until grace expires")
     func connectingGrace() async {
         let (dog, controller, time, _, _) = makeDog(desiredOn: true, connectingGrace: .seconds(15))

@@ -84,6 +84,32 @@ struct VpnStatusMonitorTests {
         #expect(states.contains(.connecting))
     }
 
+    @Test("a backlog written in one burst emits only its final state")
+    func backlogEmitsOnlyFinalState() async throws {
+        // Wake-from-sleep: limpet's loop was parked while GP kept logging, so a
+        // single wakeup reads many transitions at once. Only the last is current.
+        let path = try makeTempLog(contents: """
+         m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is 1, IsVPNInRetry() is 0.
+
+        """)
+        defer { try? FileManager.default.removeItem(atPath: path) }
+
+        let monitor = VpnStatusMonitor(path: path, time: SystemTimeSource(), pollInterval: .milliseconds(50))
+        let collected = collectStates(from: monitor.stream, max: 2, timeout: .seconds(3))
+
+        try await Task.sleep(for: .milliseconds(150))
+        // One write: dropped, then retrying. The drop is already history.
+        try append(to: path, """
+         m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is 0, IsVPNInRetry() is 0.
+         m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is 0, IsVPNInRetry() is 1.
+
+        """)
+
+        let states = await collected.value
+        #expect(states == [.connected, .connecting])
+        #expect(!states.contains(.disconnected), "stale .disconnected would trigger a spurious reconnect click")
+    }
+
     @Test("atomic rotation (replacement inode already present) rebinds the file source")
     func atomicRotationRebindsSource() async throws {
         let path = try makeTempLog(contents: """

@@ -21,11 +21,15 @@ public protocol StateSink: AnyObject, Sendable {
 ///   or `.disabled`.
 /// - Issuing a control action (`connect`/`disconnect`) takes time to take
 ///   effect. To avoid click-storming GP we apply a **settle window** after
-///   each action: no further action is issued until either the observed
-///   state has *changed* from what it was when we issued the action, or
-///   `settleWindow` has elapsed.
-/// - On successive failures (state never changes), we widen the settle
-///   window via exponential backoff up to `maxBackoff`.
+///   each action: no further action of the same kind is issued until the
+///   window has elapsed, *regardless* of what states were observed in
+///   between. A GP that flaps disconnected → connecting → disconnected
+///   every few seconds (typical after wake-from-sleep) must not earn a
+///   fresh click on every flap — each click opens GP's popover, so that
+///   reads to the user as a window flickering open and shut.
+/// - On successive attempts that never reach the goal, we widen the settle
+///   window via exponential backoff up to `maxBackoff`. Reaching the goal
+///   state resets it, so a genuine later drop reconnects immediately.
 public actor Watchdog {
     private static let log = Logger(subsystem: "com.grahamgilbert.limpet", category: "watchdog")
 
@@ -48,12 +52,6 @@ public actor Watchdog {
     // Prevents a notification storm when GP stays in a persistently bad signature state.
     private var signatureNotificationFired = false
 
-    /// State observed at the moment the most recent action was issued. While
-    /// the observed state still equals this snapshot, we hold off on further
-    /// actions until the relevant backoff timer expires.
-    private var stateAtLastConnect: ConnectionState?
-    private var stateAtLastDisconnect: ConnectionState?
-
     public init(
         controller: VpnControlling,
         stateSink: StateSink,
@@ -75,17 +73,8 @@ public actor Watchdog {
     }
 
     public func handle(_ state: ConnectionState) async {
-        let prev = lastState
         lastState = state
         stateSink.update(state)
-
-        // If the observed state has changed since we issued an action, that
-        // action either took effect (or is still in progress). Reset backoff
-        // counters so a future need to act gets a fresh attempt.
-        if state != prev {
-            if let snap = stateAtLastConnect, state != snap { stateAtLastConnect = nil }
-            if let snap = stateAtLastDisconnect, state != snap { stateAtLastDisconnect = nil }
-        }
 
         if desired.desiredOn {
             await reconcileDesiredOn(state)
@@ -94,8 +83,24 @@ public actor Watchdog {
         }
     }
 
+    /// Re-evaluates the most recently observed state.
+    ///
+    /// Load-bearing, not a convenience: the status stream is *deduplicated*, so
+    /// a GP that settles into `.disconnected` and stays there produces no
+    /// further events. Without this, an action deferred by the settle window
+    /// would never be reconsidered and the VPN would stay down indefinitely.
     public func reconcile() async {
         await handle(lastState)
+    }
+
+    /// Drives `reconcile()` on a timer for the lifetime of the app. `interval`
+    /// bounds how long past a settle window a deferred retry can sit.
+    public func runPeriodicReconcile(every interval: Duration) async {
+        while !Task.isCancelled {
+            try? await time.sleep(for: interval)
+            if Task.isCancelled { break }
+            await reconcile()
+        }
     }
 
     public func consume(_ stream: AsyncStream<ConnectionState>) async {
@@ -121,13 +126,13 @@ public actor Watchdog {
             // than connectingGrace AND no recent action is still settling.
             if let firstSeen = lastConnectingSeenAt,
                now.timeIntervalSince(firstSeen) >= connectingGrace.seconds,
-               canIssueConnect(now: now, currentState: state) {
-                await issueConnect(snapshotState: state)
+               canIssueConnect(now: now) {
+                await issueConnect(state)
             }
         case .disconnected, .disabled:
             lastConnectingSeenAt = nil
-            if canIssueConnect(now: time.now(), currentState: state) {
-                await issueConnect(snapshotState: state)
+            if canIssueConnect(now: time.now()) {
+                await issueConnect(state)
             }
         }
     }
@@ -135,36 +140,29 @@ public actor Watchdog {
     private func reconcileDesiredOff(_ state: ConnectionState) async {
         switch state {
         case .connected, .connecting:
-            if canIssueDisconnect(now: time.now(), currentState: state) {
-                await issueDisconnect(snapshotState: state)
+            if canIssueDisconnect(now: time.now()) {
+                await issueDisconnect(state)
             }
         case .disconnected, .disabled, .unknown:
             consecutiveDisconnects = 0
             lastDisconnectAt = nil
-            stateAtLastDisconnect = nil
         }
     }
 
-    private func canIssueConnect(now: Date, currentState: ConnectionState) -> Bool {
-        // If we have a snapshot of state-at-action and the current state still
-        // equals it, the action hasn't taken effect yet — wait for backoff.
-        if let snap = stateAtLastConnect, snap == currentState {
-            guard let last = lastConnectAt else { return true }
-            return now.timeIntervalSince(last) >= currentBackoff(consecutive: consecutiveConnects)
-        }
-        return true
+    /// Deliberately ignores the observed state — see the settle-window note on
+    /// the type. Intermediate flapping is not evidence the last click worked.
+    private func canIssueConnect(now: Date) -> Bool {
+        guard let last = lastConnectAt else { return true }
+        return now.timeIntervalSince(last) >= currentBackoff(consecutive: consecutiveConnects)
     }
 
-    private func canIssueDisconnect(now: Date, currentState: ConnectionState) -> Bool {
-        if let snap = stateAtLastDisconnect, snap == currentState {
-            guard let last = lastDisconnectAt else { return true }
-            return now.timeIntervalSince(last) >= currentBackoff(consecutive: consecutiveDisconnects)
-        }
-        return true
+    private func canIssueDisconnect(now: Date) -> Bool {
+        guard let last = lastDisconnectAt else { return true }
+        return now.timeIntervalSince(last) >= currentBackoff(consecutive: consecutiveDisconnects)
     }
 
-    private func issueConnect(snapshotState: ConnectionState) async {
-        Self.log.info("issueConnect: state=\(String(describing: snapshotState))")
+    private func issueConnect(_ observedState: ConnectionState) async {
+        Self.log.info("issueConnect: state=\(String(describing: observedState))")
         do {
             try await controller.connect()
         } catch {
@@ -174,11 +172,10 @@ public actor Watchdog {
         lastConnectAt = time.now()
         consecutiveConnects += 1
         lastConnectingSeenAt = nil
-        stateAtLastConnect = snapshotState
     }
 
-    private func issueDisconnect(snapshotState: ConnectionState) async {
-        Self.log.info("issueDisconnect: state=\(String(describing: snapshotState))")
+    private func issueDisconnect(_ observedState: ConnectionState) async {
+        Self.log.info("issueDisconnect: state=\(String(describing: observedState))")
         do {
             try await controller.disconnect()
         } catch {
@@ -187,7 +184,6 @@ public actor Watchdog {
         }
         lastDisconnectAt = time.now()
         consecutiveDisconnects += 1
-        stateAtLastDisconnect = snapshotState
     }
 
     private func handleControllerError(_ error: Error) {
@@ -201,7 +197,6 @@ public actor Watchdog {
         lastConnectAt = nil
         consecutiveConnects = 0
         lastConnectingSeenAt = nil
-        stateAtLastConnect = nil
     }
 
     private func currentBackoff(consecutive: Int) -> TimeInterval {

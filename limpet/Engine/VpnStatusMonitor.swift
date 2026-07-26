@@ -108,7 +108,12 @@ public final class VpnStatusMonitor: VpnStatusStreaming, @unchecked Sendable {
         for await _ in signal.stream {
             if Task.isCancelled { break }
 
-            for state in reader.consumeAppended() where state != lastEmitted {
+            // Only the *last* state in the appended bytes reflects GP now; the
+            // earlier ones are already history. This matters on wake-from-sleep,
+            // where one wakeup reads a whole backlog of transitions — replaying
+            // a stale `.disconnected` makes the watchdog click Connect on a
+            // connection that has since recovered.
+            if let state = reader.consumeAppended().last, state != lastEmitted {
                 continuation.yield(state)
                 lastEmitted = state
             }
