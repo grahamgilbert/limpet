@@ -49,6 +49,14 @@ public actor Watchdog {
     private var lastDisconnectAt: Date?
     private var consecutiveDisconnects: Int = 0
     private var lastState: ConnectionState = .unknown
+    /// True while a control action is mid-flight. `await controller.connect()`
+    /// releases this actor's isolation, so another task's `handle()` can run the
+    /// backoff check before the in-flight attempt has recorded itself. Without
+    /// this, two callers both pass the gate and GP gets two overlapping AX
+    /// conversations — observed live as a duplicate connect 150ms after the
+    /// first, which then fell through to "Refresh Connection" and dropped a
+    /// working session.
+    private var actionInFlight = false
     // Prevents a notification storm when GP stays in a persistently bad signature state.
     private var signatureNotificationFired = false
 
@@ -152,38 +160,45 @@ public actor Watchdog {
     /// Deliberately ignores the observed state — see the settle-window note on
     /// the type. Intermediate flapping is not evidence the last click worked.
     private func canIssueConnect(now: Date) -> Bool {
+        guard !actionInFlight else { return false }
         guard let last = lastConnectAt else { return true }
         return now.timeIntervalSince(last) >= currentBackoff(consecutive: consecutiveConnects)
     }
 
     private func canIssueDisconnect(now: Date) -> Bool {
+        guard !actionInFlight else { return false }
         guard let last = lastDisconnectAt else { return true }
         return now.timeIntervalSince(last) >= currentBackoff(consecutive: consecutiveDisconnects)
     }
 
     private func issueConnect(_ observedState: ConnectionState) async {
         Self.log.info("issueConnect: state=\(String(describing: observedState))")
+        // Record the attempt before suspending — see `actionInFlight`.
+        lastConnectAt = time.now()
+        consecutiveConnects += 1
+        lastConnectingSeenAt = nil
+        actionInFlight = true
+        defer { actionInFlight = false }
         do {
             try await controller.connect()
         } catch {
             Self.log.error("connect failed: \(error.localizedDescription)")
             handleControllerError(error)
         }
-        lastConnectAt = time.now()
-        consecutiveConnects += 1
-        lastConnectingSeenAt = nil
     }
 
     private func issueDisconnect(_ observedState: ConnectionState) async {
         Self.log.info("issueDisconnect: state=\(String(describing: observedState))")
+        lastDisconnectAt = time.now()
+        consecutiveDisconnects += 1
+        actionInFlight = true
+        defer { actionInFlight = false }
         do {
             try await controller.disconnect()
         } catch {
             Self.log.error("disconnect failed: \(error.localizedDescription)")
             handleControllerError(error)
         }
-        lastDisconnectAt = time.now()
-        consecutiveDisconnects += 1
     }
 
     private func handleControllerError(_ error: Error) {
