@@ -64,8 +64,8 @@ public actor AccessibilityVpnController: VpnControlling {
         self.portalAddress = portalAddress
     }
 
-    public func connect() async throws {
-        Self.log.info("connect: requested")
+    public func connect(allowRefreshFallback: Bool) async throws {
+        Self.log.info("connect: requested refreshFallback=\(allowRefreshFallback, privacy: .public)")
         await beginOperation()
         defer { endOperation() }
         let deadline = AX.Deadline(after: operationTimeout)
@@ -88,14 +88,21 @@ public actor AccessibilityVpnController: VpnControlling {
             }
         }
         try deadline.check()
-        // When GP is stuck in Connecting... there is no Connect button — fall back
-        // to the hamburger menu's "Refresh Connection" item instead.
         do {
             try pressButton(matching: ["Connect", "Enable", "Reconnect"], in: appElement, deadline: deadline)
             Self.log.info("connect: button pressed")
         } catch {
             try deadline.check()
-            Self.log.info("connect: no Connect button, trying Refresh Connection via options menu")
+            // No Connect button means one of two very different things: GP is
+            // wedged in "Connecting…", or GP is already mid-connect and doing
+            // fine. Only the caller knows which. Refreshing in the second case
+            // tears down a session that was seconds from being up — observed
+            // live, 12s after a successful Connect press.
+            guard allowRefreshFallback else {
+                Self.log.info("connect: no Connect button and GP is not stuck; leaving it alone")
+                return
+            }
+            Self.log.info("connect: GP appears stuck, trying Refresh Connection via options menu")
             try await pressOptionsMenuItem("Refresh Connection", in: appElement, deadline: deadline)
             Self.log.info("connect: Refresh Connection pressed")
         }
@@ -254,13 +261,13 @@ public actor AccessibilityVpnController: VpnControlling {
                 seenLabels.append(label)
                 return titles.contains { label.localizedCaseInsensitiveContains($0) }
             }
-            Self.log.info("pressButton: window[\(wi)] buttons=\(seenLabels)")
+            Self.log.info("pressButton: window[\(wi)] buttons=\(seenLabels, privacy: .public)")
             if let matchedButton {
                 if AX.press(matchedButton) { return }
-                Self.log.error("button press returned false for titles=\(titles)")
+                Self.log.error("button press returned false for titles=\(titles, privacy: .public)")
             }
         }
-        Self.log.error("no button matching \(titles) in any GP window")
+        Self.log.error("no button matching \(titles, privacy: .public) in any GP window")
         throw VpnControlError.buttonNotFound(titles.joined(separator: " / "))
     }
 

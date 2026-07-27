@@ -237,6 +237,25 @@ struct WatchdogTests {
         #expect(controller.connectCount == 2, "and must still let a retry through once it expires")
     }
 
+    @Test("only a GP stuck in .connecting may use the Refresh Connection fallback")
+    func refreshFallbackOnlyWhenStuck() async {
+        // Absence of a Connect button means either "GP is wedged" or "GP is
+        // already mid-connect". Refreshing in the second case tore down a session
+        // 12s after a successful Connect press, so a plain .disconnected retry
+        // must never opt in.
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true, connectingGrace: .seconds(15))
+
+        await dog.handle(.disconnected)
+        #expect(controller.refreshFallbacks == [false], "a routine reconnect must not refresh")
+
+        // Now sit in .connecting past the grace period: genuinely stuck.
+        time.advance(by: 3)
+        await dog.handle(.connecting)
+        time.advance(by: 20)
+        await dog.handle(.connecting)
+        #expect(controller.refreshFallbacks == [false, true], "a stuck GP may be refreshed")
+    }
+
     @Test("desired-on .connecting does not click until grace expires")
     func connectingGrace() async {
         let (dog, controller, time, _, _) = makeDog(desiredOn: true, connectingGrace: .seconds(15))

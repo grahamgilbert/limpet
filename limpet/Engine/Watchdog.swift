@@ -140,7 +140,10 @@ public actor Watchdog {
             if let firstSeen = lastConnectingSeenAt,
                now.timeIntervalSince(firstSeen) >= connectingGrace.seconds,
                canIssueConnect(now: now) {
-                await issueConnect(state)
+                // Sat in .connecting past the grace period: GP really is stuck,
+                // which is the only situation where "Refresh Connection" is the
+                // right hammer.
+                await issueConnect(state, allowRefreshFallback: true)
             }
         case .disconnected, .disabled:
             lastConnectingSeenAt = nil
@@ -176,8 +179,8 @@ public actor Watchdog {
         return now.timeIntervalSince(last) >= currentBackoff(consecutive: consecutiveDisconnects)
     }
 
-    private func issueConnect(_ observedState: ConnectionState) async {
-        Self.log.info("issueConnect: state=\(String(describing: observedState))")
+    private func issueConnect(_ observedState: ConnectionState, allowRefreshFallback: Bool = false) async {
+        Self.log.info("issueConnect: state=\(String(describing: observedState), privacy: .public) refreshFallback=\(allowRefreshFallback, privacy: .public)")
         // Stamped twice, deliberately. Before: a floor in case the attempt is
         // somehow not covered by `actionInFlight`. After: the settle window has
         // to measure from when GP was actually poked, not from when we started
@@ -193,15 +196,15 @@ public actor Watchdog {
             lastConnectAt = time.now()
         }
         do {
-            try await controller.connect()
+            try await controller.connect(allowRefreshFallback: allowRefreshFallback)
         } catch {
-            Self.log.error("connect failed: \(error.localizedDescription)")
+            Self.log.error("connect failed: \(error.localizedDescription, privacy: .public)")
             handleControllerError(error)
         }
     }
 
     private func issueDisconnect(_ observedState: ConnectionState) async {
-        Self.log.info("issueDisconnect: state=\(String(describing: observedState))")
+        Self.log.info("issueDisconnect: state=\(String(describing: observedState), privacy: .public)")
         lastDisconnectAt = time.now()
         consecutiveDisconnects += 1
         actionInFlight = true
@@ -212,7 +215,7 @@ public actor Watchdog {
         do {
             try await controller.disconnect()
         } catch {
-            Self.log.error("disconnect failed: \(error.localizedDescription)")
+            Self.log.error("disconnect failed: \(error.localizedDescription, privacy: .public)")
             handleControllerError(error)
         }
     }
