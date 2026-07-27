@@ -31,6 +31,20 @@ enum AX {
         var isExpired: Bool { ContinuousClock.now >= expiry }
     }
 
+    /// Backstop budget for a single tree walk by a caller that didn't pass its
+    /// own. Deliberately *not* optional: an opt-in bound only protects whoever
+    /// remembered it, and the walk that most needed one — the popup dismisser's,
+    /// via `GlobalProtectWindowProvider` — was the one without it. Sibling of
+    /// `setGlobalMessagingTimeout()`, which bounds a single message process-wide.
+    static let walkBudget: Duration = .seconds(10)
+
+    /// Fresh stop-condition for one walk. A default argument, so each call gets
+    /// its own budget rather than sharing a deadline fixed at startup.
+    static func walkBudgetStop(_ duration: Duration = walkBudget) -> () -> Bool {
+        let deadline = Deadline(after: duration)
+        return { deadline.isExpired }
+    }
+
     /// Creates the AX element for a process and pins its messaging timeout.
     /// Child elements copied from this app element inherit the timeout.
     static func appElement(_ pid: pid_t) -> AXUIElement {
@@ -107,10 +121,13 @@ enum AX {
         deadline: Deadline? = nil,
         where match: (AXUIElement) -> Bool
     ) -> AXUIElement? {
-        findNode(
+        // An explicit operation-level deadline wins; otherwise fall back to the
+        // per-walk backstop so no walk is ever unbounded.
+        let shouldStop: () -> Bool = deadline.map { budget in { budget.isExpired } } ?? walkBudgetStop()
+        return findNode(
             root,
             children: { children($0) },
-            shouldStop: { deadline?.isExpired ?? false },
+            shouldStop: shouldStop,
             where: match
         )
     }
@@ -124,7 +141,7 @@ enum AX {
     static func findNode<Node>(
         _ root: Node,
         children childrenOf: (Node) -> [Node],
-        shouldStop: () -> Bool = { false },
+        shouldStop: () -> Bool = walkBudgetStop(),
         where match: (Node) -> Bool
     ) -> Node? {
         var stack = [root]
@@ -180,16 +197,25 @@ public final class AccessibilityTrustWatcher {
     public var isTrusted: Bool = AX.isProcessTrusted(prompt: false)
 
     public init() {
-        // Detached, so the blocking call lands on a background thread; the main
-        // actor is touched only to publish an actual change.
+        // Detached, so the blocking call lands on a background thread. The last
+        // value is tracked in the loop's own scope so a steady state — which is
+        // essentially always, TCC changes at most once in a session — costs no
+        // main-actor traffic at all.
+        let initial = isTrusted
         Task.detached(priority: .utility) { [weak self] in
+            // Declared inside the task so it is plainly task-local state, not a
+            // mutable capture whose safety depends on region isolation.
+            var last = initial
             while true {
                 try? await Task.sleep(for: .seconds(5))
                 let now = AX.isProcessTrusted(prompt: false)
+                // Liveness check first: an unchanged value used to `continue`
+                // before this, so a released watcher left the task polling TCC
+                // every 5s for the life of the process.
                 guard let self else { return }
-                await MainActor.run {
-                    if now != self.isTrusted { self.isTrusted = now }
-                }
+                guard now != last else { continue }
+                last = now
+                await MainActor.run { self.isTrusted = now }
             }
         }
     }

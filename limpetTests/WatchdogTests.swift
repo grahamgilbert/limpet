@@ -158,7 +158,7 @@ struct WatchdogTests {
         // the backoff check while the first attempt is still in flight. Two
         // overlapping AX conversations against GP is what pressed Connect and
         // then fell through to "Refresh Connection" on a live session.
-        let controller = SlowVpnController(delay: .milliseconds(80))
+        let controller = RecordingVpnController(delay: .milliseconds(80))
         let dog = Watchdog(
             controller: controller,
             stateSink: RecordingStateSink(),
@@ -181,7 +181,7 @@ struct WatchdogTests {
         // A hung GP can keep connect() running longer than the settle window.
         // Recording the attempt time doesn't cover that case — the window really
         // has expired — so the in-flight guard has to.
-        let controller = SlowVpnController(delay: .milliseconds(300))
+        let controller = RecordingVpnController(delay: .milliseconds(300))
         let dog = Watchdog(
             controller: controller,
             stateSink: RecordingStateSink(),
@@ -202,6 +202,39 @@ struct WatchdogTests {
         }
 
         #expect(controller.connectCount == 1, "must not start a second conversation mid-flight")
+    }
+
+    @Test("the settle window runs from when the action finished, not when it started")
+    func settleWindowStartsAtCompletion() async {
+        // An AX operation can outlive its own backoff (20s budget vs. an 8s
+        // initial window). If the window is timed from the start of the attempt
+        // it has already expired by the time the attempt returns, so the next
+        // tick re-pokes GP instantly with no settle time at all.
+        let controller = RecordingVpnController(delay: .milliseconds(200))
+        let dog = Watchdog(
+            controller: controller,
+            stateSink: RecordingStateSink(),
+            desired: StaticDesiredState(true),
+            time: SystemTimeSource(), // real clock: the operation really outlasts the window
+            notifier: RecordingLoginItemNotifier(),
+            initialBackoff: .milliseconds(500)
+        )
+
+        // Completes at ~t=200ms, i.e. after the 500ms window would have started
+        // but well before it ends. Margins are wide (hundreds of ms) so a loaded
+        // CI runner can't flip the result.
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 1)
+
+        // ~t=220ms: only 20ms past completion, so still inside the window.
+        try? await Task.sleep(for: .milliseconds(20))
+        await dog.reconcile()
+        #expect(controller.connectCount == 1, "settle window must start when the action completed")
+
+        // ~t=820ms: past the window measured from completion (~700ms).
+        try? await Task.sleep(for: .milliseconds(600))
+        await dog.reconcile()
+        #expect(controller.connectCount == 2, "and must still let a retry through once it expires")
     }
 
     @Test("desired-on .connecting does not click until grace expires")
@@ -324,27 +357,6 @@ struct WatchdogTests {
         controller.failNext = FakeError("network timeout")
         await dog.handle(.disconnected)
         #expect(notifier.signatureInvalidCalls == 0)
-    }
-}
-
-/// A controller whose `connect()` genuinely suspends, opening the actor
-/// reentrancy window that an instantly-returning fake hides.
-private final class SlowVpnController: VpnControlling, @unchecked Sendable {
-    private let delay: Duration
-    private let lock = AsyncSafeLock()
-    private var _connectCount = 0
-
-    init(delay: Duration) { self.delay = delay }
-
-    var connectCount: Int { lock.withLock { _connectCount } }
-
-    func connect() async throws {
-        lock.withLock { _connectCount += 1 }
-        try? await Task.sleep(for: delay)
-    }
-
-    func disconnect() async throws {
-        try? await Task.sleep(for: delay)
     }
 }
 

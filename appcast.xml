@@ -124,13 +124,13 @@
         </item>
             <item>
             <title>Version 0.3.3</title>
-            <pubDate>Mon, 20 Jul 2026 18:19:22 +0000</pubDate>
-            <sparkle:version>91</sparkle:version>
+            <pubDate>Fri, 24 Jul 2026 16:37:13 +0000</pubDate>
+            <sparkle:version>94</sparkle:version>
             <sparkle:shortVersionString>0.3.3</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <link>https://github.com/grahamgilbert/limpet/releases/tag/v0.3.3</link>
-            <sparkle:releaseNotesLink sparkle:edSignature="wwMaZ99MODLmPRKKC/JHcRQ66TyzyJiYxNZSWzJS2wgSC162WhitZlG0vZfgF0dXQ5y3HPND3mdYW2ls60VdAA==" length="695">https://github.com/grahamgilbert/limpet/releases/download/v0.3.3/release-notes-0.3.3.html</sparkle:releaseNotesLink>
-            <enclosure url="https://github.com/grahamgilbert/limpet/releases/download/v0.3.3/limpet-0.3.3.dmg" sparkle:edSignature="baTK5drwJYWoD+JaFYrt/ePf4teV0pvSVRmMuFjTo8/B5gqtxUqsGc82fDblMTJXjswJBOA6edqWqakvFVSaBg==" length="2195170" type="application/octet-stream"/>
+            <sparkle:releaseNotesLink sparkle:edSignature="PBDdMOAxdHhN4VHYyEAEc6Vi99MKZx1XMy7v0rpzeuunTSoSvkUMYvwgCgrp3tZtAHqeIHPQwtuqCMfeHUVJCQ==" length="1352">https://github.com/grahamgilbert/limpet/releases/download/v0.3.3/release-notes-0.3.3.html</sparkle:releaseNotesLink>
+            <enclosure url="https://github.com/grahamgilbert/limpet/releases/download/v0.3.3/limpet-0.3.3.dmg" sparkle:edSignature="Y1+x/NTR+zQ3HqpNFbYAj6i20mQ1emByx4iwldrFYg3LWQh7KdE+7hlQ1KGIfvxxGYyY4V5CDtQaaX+4trLlCg==" length="2196230" type="application/octet-stream"/>
         </item>
     </channel>
 </rss>

@@ -38,8 +38,12 @@ public enum VpnControlError: Error, CustomStringConvertible {
 /// AX is safe off-main; only `NSWorkspace` focus handling needs the main actor,
 /// and that is hopped explicitly.
 ///
-/// Actor isolation also serialises the two callers — the watchdog and the user's
-/// menu-bar toggle — so they can never drive GP's UI at the same time.
+/// Actor isolation alone does **not** serialise operations: actors are reentrant,
+/// and every method here suspends (polling sleeps, main-actor hops), which
+/// releases isolation and lets a second caller in. The watchdog and the user's
+/// menu-bar toggle are independent callers, so `beginOperation()` provides an
+/// explicit non-reentrant gate — without it two overlapping AX conversations can
+/// toggle the popover or trigger "Refresh Connection" on a healthy session.
 public actor AccessibilityVpnController: VpnControlling {
     private static let log = Logger(subsystem: "com.grahamgilbert.limpet", category: "controller")
     private static let bundleID = GlobalProtectInstallation.bundleID
@@ -62,6 +66,8 @@ public actor AccessibilityVpnController: VpnControlling {
 
     public func connect() async throws {
         Self.log.info("connect: requested")
+        await beginOperation()
+        defer { endOperation() }
         let deadline = AX.Deadline(after: operationTimeout)
         let previousPID = await Self.frontmostPID()
         defer { Self.restoreFocus(to: previousPID) }
@@ -73,7 +79,8 @@ public actor AccessibilityVpnController: VpnControlling {
             var settled = false
             for _ in 0..<20 {
                 try? await Task.sleep(for: .milliseconds(100))
-                if !panelWindows(appElement, deadline: deadline).isEmpty { settled = true; break }
+                try deadline.check()
+                if !panelWindows(appElement).isEmpty { settled = true; break }
             }
             if !settled {
                 Self.log.error("panel disappeared after portal fill")
@@ -96,6 +103,8 @@ public actor AccessibilityVpnController: VpnControlling {
 
     public func disconnect() async throws {
         Self.log.info("disconnect: requested")
+        await beginOperation()
+        defer { endOperation() }
         let deadline = AX.Deadline(after: operationTimeout)
         let previousPID = await Self.frontmostPID()
         defer { Self.restoreFocus(to: previousPID) }
@@ -105,6 +114,31 @@ public actor AccessibilityVpnController: VpnControlling {
         Self.log.info("disconnect: button pressed")
         try? await Task.sleep(for: .milliseconds(700))
         fillDisconnectCommentAndConfirm(in: appElement, deadline: deadline)
+    }
+
+    // MARK: - Operation gate
+
+    private var operationInFlight = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    /// Blocks until no other operation is running. Callers **wait** rather than
+    /// being turned away: the watchdog can afford to retry, but silently dropping
+    /// the user's menu-bar click would look like a dead toggle. Waiting is bounded
+    /// because every operation carries `operationTimeout`.
+    private func beginOperation() async {
+        while operationInFlight {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                waiters.append(continuation)
+            }
+        }
+        operationInFlight = true
+    }
+
+    private func endOperation() {
+        operationInFlight = false
+        if !waiters.isEmpty {
+            waiters.removeFirst().resume()
+        }
     }
 
     // MARK: - Focus
@@ -149,7 +183,7 @@ public actor AccessibilityVpnController: VpnControlling {
         // After sleep/wake GP often shows a disconnection alert (AXDialog subrole)
         // before the popover has been opened; treating that alert as "popover open"
         // causes pressButton to search the alert and fail to find Connect.
-        if !panelWindows(appElement, deadline: deadline).isEmpty {
+        if !panelWindows(appElement).isEmpty {
             Self.log.info("popover already open")
             return appElement
         }
@@ -159,7 +193,7 @@ public actor AccessibilityVpnController: VpnControlling {
         for attempt in 0..<20 {
             try? await Task.sleep(for: .milliseconds(100))
             try deadline.check()
-            let windows = panelWindows(appElement, deadline: deadline)
+            let windows = panelWindows(appElement)
             Self.log.debug("popoverIsOpen: \(windows.count) GP panel windows")
             if !windows.isEmpty {
                 Self.log.info("popover opened after \(attempt + 1) polls")
@@ -174,9 +208,12 @@ public actor AccessibilityVpnController: VpnControlling {
     /// Excludes AXDialog alert popups (disconnection alerts, session-timeout alerts)
     /// which appear before the panel is open and must not be treated as the panel.
     /// AXSystemDialog is kept because the GP panel itself uses that subrole.
-    private func panelWindows(_ appElement: AXUIElement, deadline: AX.Deadline) -> [AXUIElement] {
-        guard !deadline.isExpired else { return [] }
-        return AX.windows(appElement).filter {
+    /// No deadline guard here on purpose: returning `[]` when the budget is spent
+    /// makes a timeout indistinguishable from "the panel isn't open", so callers
+    /// reported `popoverDidNotOpen` / `buttonNotFound` for what was really a
+    /// timeout. Callers check the deadline themselves and surface `.timedOut`.
+    private func panelWindows(_ appElement: AXUIElement) -> [AXUIElement] {
+        AX.windows(appElement).filter {
             (AX.subrole($0) ?? "") != (kAXDialogSubrole as String)
         }
     }
@@ -204,20 +241,22 @@ public actor AccessibilityVpnController: VpnControlling {
         Self.log.info("pressButton: \(windows.count) windows to search")
         for (wi, window) in windows.enumerated() {
             try deadline.check()
-            var allLabels: [String] = []
-            var matchedButton: AXUIElement?
-            _ = AX.find(window, deadline: deadline, where: { element in
+            // Stop at the match. Returning false to keep collecting every label
+            // for the log line meant walking the window's whole subtree *after*
+            // the button was already in hand — two AX round trips per node, each
+            // able to burn `messagingTimeout` against a wedged GP. That spent
+            // the operation budget on a log message and then timed out before
+            // the press.
+            var seenLabels: [String] = []
+            let matchedButton = AX.find(window, deadline: deadline) { element in
                 guard AX.role(element) == kAXButtonRole as String else { return false }
                 let label = AX.buttonLabel(element) ?? "<nil>"
-                allLabels.append(label)
-                if matchedButton == nil && titles.contains(where: { label.localizedCaseInsensitiveContains($0) }) {
-                    matchedButton = element
-                }
-                return false
-            })
-            Self.log.info("pressButton: window[\(wi)] buttons=\(allLabels)")
-            if let button = matchedButton {
-                if AX.press(button) { return }
+                seenLabels.append(label)
+                return titles.contains { label.localizedCaseInsensitiveContains($0) }
+            }
+            Self.log.info("pressButton: window[\(wi)] buttons=\(seenLabels)")
+            if let matchedButton {
+                if AX.press(matchedButton) { return }
                 Self.log.error("button press returned false for titles=\(titles)")
             }
         }
@@ -225,9 +264,8 @@ public actor AccessibilityVpnController: VpnControlling {
         throw VpnControlError.buttonNotFound(titles.joined(separator: " / "))
     }
 
-    @discardableResult
     private func pressOptionsMenuItem(_ item: String, in appElement: AXUIElement, deadline: AX.Deadline) async throws {
-        for window in panelWindows(appElement, deadline: deadline) {
+        for window in panelWindows(appElement) {
             try deadline.check()
             guard let menu = AX.find(window, deadline: deadline, where: { AX.role($0) == kAXPopUpButtonRole as String }) else { continue }
             guard AX.press(menu) else { continue }
@@ -255,7 +293,7 @@ public actor AccessibilityVpnController: VpnControlling {
     private func fillPortalIfNeeded(in appElement: AXUIElement, deadline: AX.Deadline) async throws -> Bool {
         let addr = await MainActor.run { self.portalAddress() }
         guard !addr.isEmpty else { return false }
-        for window in panelWindows(appElement, deadline: deadline) {
+        for window in panelWindows(appElement) {
             try deadline.check()
             if let field = AX.find(window, deadline: deadline, where: { element in
                 AX.role(element) == kAXTextFieldRole as String
@@ -295,7 +333,10 @@ public actor AccessibilityVpnController: VpnControlling {
     }
 }
 
-extension AX.Deadline {
+/// `private` so the AX layer's `Deadline` doesn't gain a dependency on this
+/// layer's error type anywhere but here — mapping "budget spent" onto a
+/// `VpnControlError` is the controller's policy, not AX's.
+private extension AX.Deadline {
     /// Throws once the budget is spent, so a caller mid-sequence stops issuing
     /// further AX messages to an app that isn't answering.
     func check() throws {

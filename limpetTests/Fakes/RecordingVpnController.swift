@@ -13,8 +13,13 @@ public final class RecordingVpnController: VpnControlling, @unchecked Sendable {
     private let lock = AsyncSafeLock()
     private var _calls: [Call] = []
     private var _failNext: Error?
+    /// Makes the call actually suspend. Needed to open the actor-reentrancy
+    /// window that an instantly-returning fake hides.
+    private let delay: Duration
 
-    public init() {}
+    public init(delay: Duration = .zero) {
+        self.delay = delay
+    }
 
     public var calls: [Call] {
         lock.withLock { _calls }
@@ -35,6 +40,7 @@ public final class RecordingVpnController: VpnControlling, @unchecked Sendable {
             _failNext = nil
             return e
         }
+        if delay != .zero { try? await Task.sleep(for: delay) }
         if let toThrow { throw toThrow }
     }
 
@@ -45,6 +51,7 @@ public final class RecordingVpnController: VpnControlling, @unchecked Sendable {
             _failNext = nil
             return e
         }
+        if delay != .zero { try? await Task.sleep(for: delay) }
         if let toThrow { throw toThrow }
     }
 }

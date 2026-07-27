@@ -51,10 +51,10 @@ public actor Watchdog {
     private var lastState: ConnectionState = .unknown
     /// True while a control action is mid-flight. `await controller.connect()`
     /// releases this actor's isolation, so another task's `handle()` can run the
-    /// backoff check before the in-flight attempt has recorded itself. Without
-    /// this, two callers both pass the gate and GP gets two overlapping AX
-    /// conversations — observed live as a duplicate connect 150ms after the
-    /// first, which then fell through to "Refresh Connection" and dropped a
+    /// backoff check before the in-flight attempt has recorded itself — and an
+    /// operation routinely outlives its own settle window, so the recorded
+    /// timestamp alone doesn't cover it. Two overlapping AX conversations make GP
+    /// press Connect and then fall through to "Refresh Connection", dropping a
     /// working session.
     private var actionInFlight = false
     // Prevents a notification storm when GP stays in a persistently bad signature state.
@@ -107,8 +107,7 @@ public actor Watchdog {
     /// A tick is cheap and cannot pile up work: it re-checks the last state and
     /// does nothing unless the settle window has expired *and* no action is in
     /// flight. It is only safe because the work it may start is bounded and runs
-    /// off the main actor — an earlier version of this ticker drove MainActor AX
-    /// calls and froze the UI for 45 minutes against a wedged GlobalProtect.
+    /// off the main actor.
     public func runPeriodicReconcile(every interval: Duration) async {
         while !Task.isCancelled {
             try? await time.sleep(for: interval)
@@ -179,12 +178,20 @@ public actor Watchdog {
 
     private func issueConnect(_ observedState: ConnectionState) async {
         Self.log.info("issueConnect: state=\(String(describing: observedState))")
-        // Record the attempt before suspending — see `actionInFlight`.
+        // Stamped twice, deliberately. Before: a floor in case the attempt is
+        // somehow not covered by `actionInFlight`. After: the settle window has
+        // to measure from when GP was actually poked, not from when we started
+        // trying — an operation can outlive its own backoff (20s budget vs. an
+        // 8s initial window), and stamping only at the start let the very next
+        // tick re-poke GP the instant the attempt finished, with no settle time.
         lastConnectAt = time.now()
         consecutiveConnects += 1
         lastConnectingSeenAt = nil
         actionInFlight = true
-        defer { actionInFlight = false }
+        defer {
+            actionInFlight = false
+            lastConnectAt = time.now()
+        }
         do {
             try await controller.connect()
         } catch {
@@ -198,7 +205,10 @@ public actor Watchdog {
         lastDisconnectAt = time.now()
         consecutiveDisconnects += 1
         actionInFlight = true
-        defer { actionInFlight = false }
+        defer {
+            actionInFlight = false
+            lastDisconnectAt = time.now()
+        }
         do {
             try await controller.disconnect()
         } catch {
