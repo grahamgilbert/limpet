@@ -106,6 +106,183 @@ struct WatchdogTests {
         #expect(controller.connectCount == 2) // immediate, despite tiny gap
     }
 
+    @Test("flapping disconnected → connecting → disconnected does not bypass backoff")
+    func flappingDoesNotBypassBackoff() async {
+        // Wake-from-sleep signature: GP oscillates rather than sitting still.
+        // Each connect click opens GP's popover, so a click per flap reads to
+        // the user as a window flickering open and shut.
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true)
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 1)
+
+        // 5 flaps × 0.2s = 1.0s, comfortably inside the 2s initial backoff.
+        for _ in 0..<5 {
+            time.advance(by: 0.1)
+            await dog.handle(.connecting)   // GP tries
+            time.advance(by: 0.1)
+            await dog.handle(.disconnected) // ...and gives up again
+        }
+        #expect(controller.connectCount == 1, "backoff must survive intermediate transitions")
+
+        time.advance(by: 1.5) // t = 2.5s, past initialBackoff
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 2)
+    }
+
+    @Test("a retry blocked by the settle window is retried once the window expires")
+    func blockedRetryIsReconsidered() async {
+        // The state stream is deduplicated: if GP settles into .disconnected and
+        // stays there, no further events arrive. A retry that was blocked by the
+        // settle window must therefore be reconsidered on a timer, or the VPN
+        // stays down forever.
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true)
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 1)
+
+        time.advance(by: 0.1)
+        await dog.handle(.connecting)   // GP tries
+        time.advance(by: 0.1)
+        await dog.handle(.disconnected) // ...and gives up. Blocked by the window.
+        #expect(controller.connectCount == 1)
+
+        // No further stream events will ever arrive — GP just sits disconnected.
+        time.advance(by: 2.5)
+        await dog.reconcile()
+        #expect(controller.connectCount == 2, "timer-driven reconcile must retry the last state")
+    }
+
+    @Test("concurrent handle() calls do not issue overlapping control actions")
+    func noReentrantControlActions() async {
+        // `await controller.connect()` releases the actor's isolation, so a
+        // second caller (the reconcile ticker vs. the event stream) can reach
+        // the backoff check while the first attempt is still in flight. Two
+        // overlapping AX conversations against GP is what pressed Connect and
+        // then fell through to "Refresh Connection" on a live session.
+        let controller = RecordingVpnController(delay: .milliseconds(80))
+        let dog = Watchdog(
+            controller: controller,
+            stateSink: RecordingStateSink(),
+            desired: StaticDesiredState(true),
+            time: FakeTimeSource(),
+            notifier: RecordingLoginItemNotifier(),
+            initialBackoff: .seconds(2)
+        )
+
+        await withTaskGroup { group in
+            group.addTask { await dog.handle(.disconnected) }
+            group.addTask { await dog.handle(.disconnected) }
+        }
+
+        #expect(controller.connectCount == 1, "the second caller must not overlap the in-flight attempt")
+    }
+
+    @Test("an in-flight action blocks a new one even after the settle window expires")
+    func inFlightBlocksEvenAfterWindowExpires() async {
+        // A hung GP can keep connect() running longer than the settle window.
+        // Recording the attempt time doesn't cover that case — the window really
+        // has expired — so the in-flight guard has to.
+        let controller = RecordingVpnController(delay: .milliseconds(300))
+        let dog = Watchdog(
+            controller: controller,
+            stateSink: RecordingStateSink(),
+            desired: StaticDesiredState(true),
+            time: SystemTimeSource(), // a real clock, so the window truly expires
+            notifier: RecordingLoginItemNotifier(),
+            initialBackoff: .milliseconds(20)
+        )
+
+        await withTaskGroup { group in
+            group.addTask { await dog.handle(.disconnected) }
+            group.addTask {
+                // Arrive after the 20ms window has expired, but while the first
+                // attempt's 300ms AX conversation is still running.
+                try? await Task.sleep(for: .milliseconds(100))
+                await dog.handle(.disconnected)
+            }
+        }
+
+        #expect(controller.connectCount == 1, "must not start a second conversation mid-flight")
+    }
+
+    @Test("the settle window runs from when the action finished, not when it started")
+    func settleWindowStartsAtCompletion() async {
+        // An AX operation can outlive its own backoff (20s budget vs. an 8s
+        // initial window). If the window is timed from the start of the attempt
+        // it has already expired by the time the attempt returns, so the next
+        // tick re-pokes GP instantly with no settle time at all.
+        let controller = RecordingVpnController(delay: .milliseconds(200))
+        let dog = Watchdog(
+            controller: controller,
+            stateSink: RecordingStateSink(),
+            desired: StaticDesiredState(true),
+            time: SystemTimeSource(), // real clock: the operation really outlasts the window
+            notifier: RecordingLoginItemNotifier(),
+            initialBackoff: .milliseconds(500)
+        )
+
+        // Completes at ~t=200ms, i.e. after the 500ms window would have started
+        // but well before it ends. Margins are wide (hundreds of ms) so a loaded
+        // CI runner can't flip the result.
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 1)
+
+        // ~t=220ms: only 20ms past completion, so still inside the window.
+        try? await Task.sleep(for: .milliseconds(20))
+        await dog.reconcile()
+        #expect(controller.connectCount == 1, "settle window must start when the action completed")
+
+        // ~t=820ms: past the window measured from completion (~700ms).
+        try? await Task.sleep(for: .milliseconds(600))
+        await dog.reconcile()
+        #expect(controller.connectCount == 2, "and must still let a retry through once it expires")
+    }
+
+    @Test("only a GP stuck in .connecting may use the Refresh Connection fallback")
+    func refreshFallbackOnlyWhenStuck() async {
+        // Absence of a Connect button means either "GP is wedged" or "GP is
+        // already mid-connect". Refreshing in the second case tore down a session
+        // 12s after a successful Connect press, so a plain .disconnected retry
+        // must never opt in.
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true, connectingGrace: .seconds(15))
+
+        await dog.handle(.disconnected)
+        #expect(controller.refreshFallbacks == [false], "a routine reconnect must not refresh")
+
+        // Now sit in .connecting past the grace period: genuinely stuck.
+        time.advance(by: 3)
+        await dog.handle(.connecting)
+        time.advance(by: 20)
+        await dog.handle(.connecting)
+        #expect(controller.refreshFallbacks == [false, true], "a stuck GP may be refreshed")
+    }
+
+    @Test("wake clears the accumulated backoff so the reconnect isn't stalled for minutes")
+    func wakeClearsBackoff() async {
+        // Backoff otherwise only resets on reaching .connected, so a GP failing
+        // before sleep leaves the window at maxBackoff — and wake is precisely
+        // when a prompt reconnect matters.
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true)
+
+        // Drive the backoff up — each attempt doubles the window, from the 2s
+        // initial used by makeDog. Advance *before* each attempt so the final one
+        // leaves no elapsed time against its (now 16s) window.
+        await dog.handle(.disconnected)                        // #1, window → 2s
+        time.advance(by: 5);  await dog.handle(.disconnected)  // #2, window → 4s
+        time.advance(by: 10); await dog.handle(.disconnected)  // #3, window → 8s
+        time.advance(by: 20); await dog.handle(.disconnected)  // #4, window → 16s
+        let attemptsBeforeWake = controller.connectCount
+        #expect(attemptsBeforeWake == 4)
+
+        // 1s in, nowhere near the widened 16s window.
+        time.advance(by: 1)
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == attemptsBeforeWake, "still inside the widened window")
+
+        await dog.handleWake()
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == attemptsBeforeWake + 1, "wake must allow an immediate attempt")
+    }
+
     @Test("desired-on .connecting does not click until grace expires")
     func connectingGrace() async {
         let (dog, controller, time, _, _) = makeDog(desiredOn: true, connectingGrace: .seconds(15))

@@ -4,8 +4,19 @@
 import Foundation
 
 public protocol VpnControlling: Sendable {
-    func connect() async throws
+    /// - Parameter allowRefreshFallback: permit "Refresh Connection" when no
+    ///   Connect button exists. Only correct when GP is believed *stuck*: if GP
+    ///   is merely mid-connect there is also no Connect button, and refreshing
+    ///   then tears down a session that was about to come up.
+    func connect(allowRefreshFallback: Bool) async throws
     func disconnect() async throws
+}
+
+public extension VpnControlling {
+    /// A plain connect never refreshes. Callers that know GP is stuck opt in.
+    func connect() async throws {
+        try await connect(allowRefreshFallback: false)
+    }
 }
 
 public protocol VpnStatusStreaming: Sendable {

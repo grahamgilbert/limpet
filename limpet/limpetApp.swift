@@ -41,7 +41,24 @@ struct limpetApp: App {
         let stream = monitor.stream
         let dog = watchdog
         self.watchdogTask = Task.detached {
-            await dog.consume(stream)
+            // The status stream is deduplicated, so events alone are not enough
+            // to guarantee progress: a retry deferred by the settle window needs
+            // something to reconsider it once the window expires.
+            await withTaskGroup { group in
+                group.addTask { await dog.consume(stream) }
+                group.addTask { await dog.runPeriodicReconcile(every: .seconds(5)) }
+            }
+        }
+
+        // Wake is the moment a reconnect matters most, and it is the moment the
+        // backoff is likely to be at its widest — GP failing before sleep leaves
+        // it capped, which would stall the reconnect for minutes.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            Task { await dog.handleWake() }
         }
 
         let dismisser = PopupDismisserImpl(provider: GlobalProtectWindowProvider())
