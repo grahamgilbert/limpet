@@ -90,7 +90,7 @@ public actor AccessibilityVpnController: VpnControlling {
         try deadline.check()
         do {
             try pressButton(matching: ["Connect", "Enable", "Reconnect"], in: appElement, deadline: deadline)
-            Self.log.info("connect: button pressed")
+            Self.log.notice("connect: button pressed")
         } catch {
             try deadline.check()
             // No Connect button means one of two very different things: GP is
@@ -99,12 +99,12 @@ public actor AccessibilityVpnController: VpnControlling {
             // tears down a session that was seconds from being up — observed
             // live, 12s after a successful Connect press.
             guard allowRefreshFallback else {
-                Self.log.info("connect: no Connect button and GP is not stuck; leaving it alone")
+                Self.log.notice("connect: no Connect button and GP is not stuck; leaving it alone")
                 return
             }
             Self.log.info("connect: GP appears stuck, trying Refresh Connection via options menu")
             try await pressOptionsMenuItem("Refresh Connection", in: appElement, deadline: deadline)
-            Self.log.info("connect: Refresh Connection pressed")
+            Self.log.notice("connect: Refresh Connection pressed")
         }
     }
 
@@ -118,7 +118,7 @@ public actor AccessibilityVpnController: VpnControlling {
 
         let appElement = try await openPopoverIfNeeded(deadline: deadline)
         try pressButton(matching: ["Disconnect", "Disable"], in: appElement, deadline: deadline)
-        Self.log.info("disconnect: button pressed")
+        Self.log.notice("disconnect: button pressed")
         try? await Task.sleep(for: .milliseconds(700))
         fillDisconnectCommentAndConfirm(in: appElement, deadline: deadline)
     }

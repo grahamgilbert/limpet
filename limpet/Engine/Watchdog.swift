@@ -129,7 +129,7 @@ public actor Watchdog {
     /// periodic tick picks this up within seconds, by which point the log tailer
     /// has emitted the real current state.
     public func handleWake() async {
-        Self.log.info("wake: clearing backoff")
+        Self.log.notice("wake: clearing backoff")
         resetBackoff()
         consecutiveDisconnects = 0
         lastDisconnectAt = nil
@@ -199,7 +199,7 @@ public actor Watchdog {
     }
 
     private func issueConnect(_ observedState: ConnectionState, allowRefreshFallback: Bool = false) async {
-        Self.log.info("issueConnect: state=\(String(describing: observedState), privacy: .public) refreshFallback=\(allowRefreshFallback, privacy: .public)")
+        Self.log.notice("issueConnect: state=\(String(describing: observedState), privacy: .public) refreshFallback=\(allowRefreshFallback, privacy: .public)")
         // Stamped twice, deliberately. Before: a floor in case the attempt is
         // somehow not covered by `actionInFlight`. After: the settle window has
         // to measure from when GP was actually poked, not from when we started
@@ -217,13 +217,16 @@ public actor Watchdog {
         do {
             try await controller.connect(allowRefreshFallback: allowRefreshFallback)
         } catch {
-            Self.log.error("connect failed: \(error.localizedDescription, privacy: .public)")
+            // String(describing:) not localizedDescription: VpnControlError is
+            // CustomStringConvertible, and localizedDescription ignores that and
+            // prints "VpnControlError error 6" — a raw case index nobody can read.
+            Self.log.error("connect failed: \(String(describing: error), privacy: .public)")
             handleControllerError(error)
         }
     }
 
     private func issueDisconnect(_ observedState: ConnectionState) async {
-        Self.log.info("issueDisconnect: state=\(String(describing: observedState), privacy: .public)")
+        Self.log.notice("issueDisconnect: state=\(String(describing: observedState), privacy: .public)")
         lastDisconnectAt = time.now()
         consecutiveDisconnects += 1
         actionInFlight = true
@@ -234,7 +237,7 @@ public actor Watchdog {
         do {
             try await controller.disconnect()
         } catch {
-            Self.log.error("disconnect failed: \(error.localizedDescription, privacy: .public)")
+            Self.log.error("disconnect failed: \(String(describing: error), privacy: .public)")
             handleControllerError(error)
         }
     }
