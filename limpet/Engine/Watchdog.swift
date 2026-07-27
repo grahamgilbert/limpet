@@ -116,6 +116,25 @@ public actor Watchdog {
         }
     }
 
+    /// Drop the accumulated backoff because the machine just woke.
+    ///
+    /// Backoff otherwise only resets on reaching `.connected`, so a GP that was
+    /// failing before sleep leaves the window at `maxBackoff` — and wake is
+    /// exactly when a prompt reconnect matters most. Sleep also guarantees one
+    /// wasted increment: `AX.Deadline` counts time asleep, so any attempt that
+    /// straddles sleep is already over budget when the machine comes back.
+    ///
+    /// Deliberately does *not* reconcile here. `lastState` is pre-sleep and
+    /// therefore stale; acting on it could poke a GP that is actually fine. The
+    /// periodic tick picks this up within seconds, by which point the log tailer
+    /// has emitted the real current state.
+    public func handleWake() async {
+        Self.log.info("wake: clearing backoff")
+        resetBackoff()
+        consecutiveDisconnects = 0
+        lastDisconnectAt = nil
+    }
+
     public func consume(_ stream: AsyncStream<ConnectionState>) async {
         for await state in stream {
             await handle(state)

@@ -256,6 +256,33 @@ struct WatchdogTests {
         #expect(controller.refreshFallbacks == [false, true], "a stuck GP may be refreshed")
     }
 
+    @Test("wake clears the accumulated backoff so the reconnect isn't stalled for minutes")
+    func wakeClearsBackoff() async {
+        // Backoff otherwise only resets on reaching .connected, so a GP failing
+        // before sleep leaves the window at maxBackoff — and wake is precisely
+        // when a prompt reconnect matters.
+        let (dog, controller, time, _, _) = makeDog(desiredOn: true)
+
+        // Drive the backoff up — each attempt doubles the window, from the 2s
+        // initial used by makeDog. Advance *before* each attempt so the final one
+        // leaves no elapsed time against its (now 16s) window.
+        await dog.handle(.disconnected)                        // #1, window → 2s
+        time.advance(by: 5);  await dog.handle(.disconnected)  // #2, window → 4s
+        time.advance(by: 10); await dog.handle(.disconnected)  // #3, window → 8s
+        time.advance(by: 20); await dog.handle(.disconnected)  // #4, window → 16s
+        let attemptsBeforeWake = controller.connectCount
+        #expect(attemptsBeforeWake == 4)
+
+        // 1s in, nowhere near the widened 16s window.
+        time.advance(by: 1)
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == attemptsBeforeWake, "still inside the widened window")
+
+        await dog.handleWake()
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == attemptsBeforeWake + 1, "wake must allow an immediate attempt")
+    }
+
     @Test("desired-on .connecting does not click until grace expires")
     func connectingGrace() async {
         let (dog, controller, time, _, _) = makeDog(desiredOn: true, connectingGrace: .seconds(15))
