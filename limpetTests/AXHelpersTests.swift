@@ -43,6 +43,32 @@ struct AXHelpersTests {
         AX.findNode(root, children: { $0.children }, where: match)
     }
 
+    @Test("shouldStop aborts the walk and bounds how many nodes are visited")
+    func shouldStopBoundsWalk() {
+        // Each node visit is a live AX message in production. A walk over a
+        // wedged GlobalProtect pinned a thread for 45 minutes, so the walk has
+        // to be abortable partway through.
+        let tree = Node(value: 0, children: (1...50).map { Node(value: $0, children: []) })
+        var visited = 0
+        let match: (Node) -> Bool = { _ in visited += 1; return false }
+
+        let found = AX.findNode(
+            tree,
+            children: { $0.children },
+            shouldStop: { visited >= 5 },
+            where: match
+        )
+
+        #expect(found == nil, "an aborted walk reports not-found")
+        #expect(visited <= 6, "walk stopped early instead of visiting all 51 nodes, got \(visited)")
+    }
+
+    @Test("shouldStop defaulting to false leaves the walk exhaustive")
+    func defaultShouldStopWalksAll() {
+        let tree = Node(value: 0, children: (1...50).map { Node(value: $0, children: []) })
+        #expect(find(tree, where: { $0.value == 50 })?.value == 50)
+    }
+
     @Test("finds root when it matches")
     func findsRoot() {
         let tree = Node(value: 1, children: [])

@@ -103,6 +103,12 @@ public actor Watchdog {
 
     /// Drives `reconcile()` on a timer for the lifetime of the app. `interval`
     /// bounds how long past a settle window a deferred retry can sit.
+    ///
+    /// A tick is cheap and cannot pile up work: it re-checks the last state and
+    /// does nothing unless the settle window has expired *and* no action is in
+    /// flight. It is only safe because the work it may start is bounded and runs
+    /// off the main actor — an earlier version of this ticker drove MainActor AX
+    /// calls and froze the UI for 45 minutes against a wedged GlobalProtect.
     public func runPeriodicReconcile(every interval: Duration) async {
         while !Task.isCancelled {
             try? await time.sleep(for: interval)
