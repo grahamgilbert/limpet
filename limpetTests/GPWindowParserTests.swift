@@ -23,6 +23,12 @@ struct GPFakeNode {
         self.children = children
         self.isMinimizable = isMinimizable
     }
+
+    /// Stands in for the live `kAXCloseButtonAttribute`: a direct child with the
+    /// close-button subrole, which is where AX exposes the real traffic light.
+    var closeButton: GPFakeNode? {
+        children.first { $0.subrole == "AXCloseButton" }
+    }
 }
 
 extension GPWindowAccessors where Node == GPFakeNode {
@@ -32,9 +38,25 @@ extension GPWindowAccessors where Node == GPFakeNode {
         value: { $0.value },
         title: { $0.title },
         children: { $0.children },
-        isMinimizable: { $0.isMinimizable }
+        isMinimizable: { $0.isMinimizable },
+        closeButton: { $0.closeButton }
     )
 }
+
+/// The session-timeout alert as GP 6.x actually renders it: a minimizable
+/// AXStandardWindow whose only buttons are the traffic lights.
+let sessionTimeoutWindow = GPFakeNode(subrole: "AXStandardWindow", title: "GlobalProtect", children: [
+    GPFakeNode(role: "AXScrollArea", children: [
+        GPFakeNode(role: "AXWebArea", children: [
+            GPFakeNode(role: "AXStaticText",
+                       value: "Your GlobalProtect session has been disconnected due to network connectivity issues or session timeouts."),
+        ]),
+    ]),
+    GPFakeNode(role: "AXButton", subrole: "AXCloseButton"),
+    GPFakeNode(role: "AXButton", subrole: "AXZoomButton"),
+    GPFakeNode(role: "AXButton", subrole: "AXMinimizeButton"),
+    GPFakeNode(role: "AXStaticText", value: "GlobalProtect"),
+], isMinimizable: true)
 
 // MARK: - Title extraction
 
@@ -134,45 +156,67 @@ struct GPWindowParserBodyTests {
     }
 }
 
-// MARK: - Dialog subrole filter
+// MARK: - Window eligibility + dismiss button selection
 
-@Suite("GPWindowParser — isDialog")
-struct GPWindowParserIsDialogTests {
+@Suite("GPWindowParser — dismissButton")
+struct GPWindowParserDismissButtonTests {
 
-    @Test("AXSystemDialog subrole is rejected — this is the GP status-item panel, not a popup")
-    func axSystemDialogRejected() {
-        let window = GPFakeNode(subrole: "AXSystemDialog")
-        #expect(GPWindowParser.isDialog(window: window, using: .fake) == false)
+    /// Alert shape: an OK button plus traffic lights, not minimizable.
+    private func alert(subrole: String?, isMinimizable: Bool = false) -> GPFakeNode {
+        GPFakeNode(subrole: subrole, children: [
+            GPFakeNode(role: "AXButton", subrole: "AXCloseButton"),
+            GPFakeNode(role: "AXButton", title: "OK"),
+        ], isMinimizable: isMinimizable)
     }
 
-    @Test("AXDialog subrole is accepted")
+    @Test("AXSystemDialog is rejected — this is the GP status-item panel, not a popup")
+    func axSystemDialogRejected() {
+        #expect(GPWindowParser.dismissButton(in: alert(subrole: "AXSystemDialog"), using: .fake) == nil)
+    }
+
+    @Test("AXDialog alert presses its action button")
     func axDialogAccepted() {
-        let window = GPFakeNode(subrole: "AXDialog")
-        #expect(GPWindowParser.isDialog(window: window, using: .fake) == true)
+        #expect(GPWindowParser.dismissButton(in: alert(subrole: "AXDialog"), using: .fake)?.title == "OK")
     }
 
     @Test("AXStandardWindow non-minimizable is accepted — disconnection alerts use this subrole")
     func standardWindowAlertAccepted() {
-        let window = GPFakeNode(subrole: "AXStandardWindow", isMinimizable: false)
-        #expect(GPWindowParser.isDialog(window: window, using: .fake) == true)
+        #expect(GPWindowParser.dismissButton(in: alert(subrole: "AXStandardWindow"), using: .fake)?.title == "OK")
     }
 
-    @Test("AXStandardWindow minimizable is rejected — this is the main GP app window")
-    func standardWindowMainAppRejected() {
-        let window = GPFakeNode(subrole: "AXStandardWindow", isMinimizable: true)
-        #expect(GPWindowParser.isDialog(window: window, using: .fake) == false)
-    }
-
-    @Test("nil subrole non-minimizable is accepted")
+    @Test("nil subrole is accepted")
     func nilSubroleAccepted() {
-        let window = GPFakeNode(subrole: nil, isMinimizable: false)
-        #expect(GPWindowParser.isDialog(window: window, using: .fake) == true)
+        #expect(GPWindowParser.dismissButton(in: alert(subrole: nil), using: .fake)?.title == "OK")
     }
 
-    @Test("unknown subrole non-minimizable is accepted")
+    @Test("unknown subrole is accepted")
     func unknownSubroleAccepted() {
-        let window = GPFakeNode(subrole: "AXFloatingWindow", isMinimizable: false)
-        #expect(GPWindowParser.isDialog(window: window, using: .fake) == true)
+        #expect(GPWindowParser.dismissButton(in: alert(subrole: "AXFloatingWindow"), using: .fake)?.title == "OK")
+    }
+
+    @Test("minimizable window with an action button is rejected — this is the main GP app window")
+    func standardWindowMainAppRejected() {
+        let mainWindow = GPFakeNode(subrole: "AXStandardWindow", children: [
+            GPFakeNode(role: "AXButton", subrole: "AXCloseButton"),
+            GPFakeNode(role: "AXButton", title: "Disconnect"),
+        ], isMinimizable: true)
+        #expect(GPWindowParser.dismissButton(in: mainWindow, using: .fake) == nil)
+    }
+
+    @Test("minimizable window with only traffic lights is closed — the session-timeout alert")
+    func sessionTimeoutClosed() {
+        #expect(GPWindowParser.dismissButton(in: sessionTimeoutWindow, using: .fake)?.subrole == "AXCloseButton")
+    }
+
+    @Test("prefers an action button over the close button")
+    func prefersActionButton() {
+        #expect(GPWindowParser.dismissButton(in: alert(subrole: nil), using: .fake)?.title == "OK")
+    }
+
+    @Test("returns nil when the window has no buttons at all")
+    func nilWhenNoButtons() {
+        let window = GPFakeNode(children: [GPFakeNode(role: "AXStaticText", value: "hi")])
+        #expect(GPWindowParser.dismissButton(in: window, using: .fake) == nil)
     }
 }
 
@@ -210,6 +254,14 @@ struct GPWindowParserIntegrationTests {
         ])
         let title = GPWindowParser.title(in: window, using: .fake)
         let body = GPWindowParser.bodyText(in: window, using: .fake)
+        #expect(shouldDismissPopup(title: title, body: body) == true)
+    }
+
+    @Test("session-timeout standard window is eligible and dismissed")
+    func sessionTimeoutDismissed() {
+        let title = GPWindowParser.title(in: sessionTimeoutWindow, using: .fake)
+        let body = GPWindowParser.bodyText(in: sessionTimeoutWindow, using: .fake)
+        #expect(GPWindowParser.dismissButton(in: sessionTimeoutWindow, using: .fake) != nil)
         #expect(shouldDismissPopup(title: title, body: body) == true)
     }
 
