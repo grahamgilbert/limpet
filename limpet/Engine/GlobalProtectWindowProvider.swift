@@ -17,6 +17,10 @@ struct GPWindowAccessors<Node>: @unchecked Sendable {
     let title: (Node) -> String?
     let children: (Node) -> [Node]
     let isMinimizable: (Node) -> Bool
+    /// The window's own close button. Read as a window attribute rather than
+    /// found by walking, so it costs one AX message and can't match a close
+    /// control nested somewhere inside the window's content.
+    let closeButton: (Node) -> Node?
 }
 
 extension GPWindowAccessors where Node == AXUIElement {
@@ -26,20 +30,54 @@ extension GPWindowAccessors where Node == AXUIElement {
         value: AX.value,
         title: AX.title,
         children: AX.children,
-        isMinimizable: { AX.attribute($0, kAXMinimizeButtonAttribute as String, as: AXUIElement.self) != nil }
+        isMinimizable: { AX.attribute($0, kAXMinimizeButtonAttribute as String, as: AXUIElement.self) != nil },
+        closeButton: { AX.attribute($0, kAXCloseButtonAttribute as String, as: AXUIElement.self) }
     )
 }
 
 enum GPWindowParser {
-    /// Returns true if this window is a dismissable popup.
+    private static let buttonRole = kAXButtonRole as String
+
+    /// Window-frame buttons: pressing one is never a dialog response.
+    private static let frameButtonSubroles: Set<String> = [
+        kAXCloseButtonSubrole as String,
+        kAXMinimizeButtonSubrole as String,
+        kAXZoomButtonSubrole as String,
+        kAXFullScreenButtonSubrole as String,
+    ]
+
+    /// The button that dismisses this window, or `nil` if the window must not be
+    /// auto-dismissed. Eligibility and button choice are one question because
+    /// answering it costs a tree walk of a live AX process — asking twice per
+    /// window per tick doubled the worst-case time spent against a wedged GP.
     ///
-    /// Excludes two window types that must never be auto-dismissed:
-    /// - AXSystemDialog: the GP status-item panel (pressing its button closes the panel mid-connect)
-    /// - Minimizable windows: the main GP app window (AXStandardWindow with a minimize button);
-    ///   alert popups are never minimizable, so this reliably distinguishes app windows from alerts.
-    static func isDialog<N>(window: N, using ax: GPWindowAccessors<N>) -> Bool {
-        (ax.subrole(window) ?? "") != (kAXSystemDialogSubrole as String)
-            && !ax.isMinimizable(window)
+    /// Two window types are never dismissed:
+    /// - AXSystemDialog: the GP status-item panel (pressing its button closes the panel mid-connect).
+    /// - Minimizable windows with an action button: the main GP app window, whose
+    ///   button is Connect/Disconnect. The session-timeout alert is *also* a
+    ///   minimizable AXStandardWindow, so minimizability alone can't separate the
+    ///   two — but it has no action button, only traffic lights, and gets closed
+    ///   rather than pressed. That also bounds the blast radius if this ever
+    ///   misjudges: a minimizable window can only be closed, never actioned.
+    static func dismissButton<N>(in window: N, using ax: GPWindowAccessors<N>) -> N? {
+        guard (ax.subrole(window) ?? "") != (kAXSystemDialogSubrole as String) else { return nil }
+        // Own the walk's budget rather than letting `findNode` default one, so a
+        // miss can be told apart from a truncated walk below.
+        let deadline = AX.Deadline(after: AX.walkBudget)
+        let action = AX.findNode(
+            window,
+            children: ax.children,
+            shouldStop: { deadline.isExpired },
+            where: { ax.role($0) == buttonRole && !frameButtonSubroles.contains(ax.subrole($0) ?? "") }
+        )
+        if let action {
+            return ax.isMinimizable(window) ? nil : action
+        }
+        // No action button found — but a walk that ran out of budget against a
+        // slow GP reports exactly the same nil, and that's the state where the
+        // main app window would be misread as the button-less alert and closed.
+        // Fail closed: dismiss nothing until a walk completes.
+        return deadline.isExpired ? nil : ax.closeButton(window)
     }
 
     /// Returns the window title, falling back to the first top-level
@@ -90,16 +128,15 @@ enum GPWindowParser {
 
 // MARK: - Live provider
 
-/// Walks the GlobalProtect process via Accessibility and returns its windows
-/// as `PopupWindow` snapshots. Each snapshot's `pressPrimary` closure presses
-/// the **first button** in the window — which matches gp-bye's
-/// "click button 1 of w" behavior.
+/// Walks the GlobalProtect process via Accessibility and returns its
+/// auto-dismissable windows as `PopupWindow` snapshots. Each snapshot's
+/// `pressPrimary` closure presses the button `GPWindowParser.dismissButton`
+/// picked for that window.
 ///
-/// Window title/body extraction is delegated to `GPWindowParser` which is
-/// unit-tested independently using `GPFakeNode` stubs.
+/// Window classification and title/body extraction are delegated to
+/// `GPWindowParser`, which is unit-tested independently using `GPFakeNode` stubs.
 public final class GlobalProtectWindowProvider: WindowProvider, @unchecked Sendable {
     private static let bundleID = GlobalProtectInstallation.bundleID
-    private static let buttonRole = kAXButtonRole as String
     private let verifier = GPCodeSignatureVerifier()
 
     public init() {}
@@ -110,20 +147,13 @@ public final class GlobalProtectWindowProvider: WindowProvider, @unchecked Senda
             return []
         }
         let appElement = AX.appElement(app.processIdentifier)
-        return AX.windows(appElement)
-            .filter { GPWindowParser.isDialog(window: $0, using: .live) }
-            .map { window in
-                let title = GPWindowParser.title(in: window, using: .live)
-                let body = GPWindowParser.bodyText(in: window, using: .live)
-                let firstButton = AX.find(window, where: { AX.role($0) == Self.buttonRole })
-                return PopupWindow(
-                    title: title,
-                    bodyText: body,
-                    pressPrimary: { [firstButton] in
-                        guard let firstButton else { return false }
-                        return AX.press(firstButton)
-                    }
-                )
-            }
+        return AX.windows(appElement).compactMap { window in
+            guard let button = GPWindowParser.dismissButton(in: window, using: .live) else { return nil }
+            return PopupWindow(
+                title: GPWindowParser.title(in: window, using: .live),
+                bodyText: GPWindowParser.bodyText(in: window, using: .live),
+                pressPrimary: { AX.press(button) }
+            )
+        }
     }
 }
