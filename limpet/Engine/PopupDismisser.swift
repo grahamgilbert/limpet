@@ -31,6 +31,12 @@ public protocol WindowProvider: Sendable {
 /// Pure rule: returns `true` if a window with this title and body text is
 /// the GlobalProtect "you got disconnected" / "session timeout" / "connectivity
 /// issues" popup that we should auto-dismiss.
+///
+/// Doubles as a safety gate for `GPWindowParser.dismissButton`, which hands back
+/// a close-button press for any button-less/timed-out window — including the
+/// main GP app window. This phrase list is the only thing that keeps that press
+/// off the main window, so adding a phrase here also widens what can be
+/// auto-closed.
 public func shouldDismissPopup(title: String?, body: String?) -> Bool {
     guard title == "GlobalProtect" else { return false }
     guard let body = body?.lowercased() else { return false }
