@@ -61,23 +61,24 @@ enum GPWindowParser {
     ///   misjudges: a minimizable window can only be closed, never actioned.
     static func dismissButton<N>(in window: N, using ax: GPWindowAccessors<N>) -> N? {
         guard (ax.subrole(window) ?? "") != (kAXSystemDialogSubrole as String) else { return nil }
-        // Own the walk's budget rather than letting `findNode` default one, so a
-        // miss can be told apart from a truncated walk below.
-        let deadline = AX.Deadline(after: AX.walkBudget)
         let action = AX.findNode(
             window,
             children: ax.children,
-            shouldStop: { deadline.isExpired },
             where: { ax.role($0) == buttonRole && !frameButtonSubroles.contains(ax.subrole($0) ?? "") }
         )
         if let action {
             return ax.isMinimizable(window) ? nil : action
         }
-        // No action button found — but a walk that ran out of budget against a
-        // slow GP reports exactly the same nil, and that's the state where the
-        // main app window would be misread as the button-less alert and closed.
-        // Fail closed: dismiss nothing until a walk completes.
-        return deadline.isExpired ? nil : ax.closeButton(window)
+        // No action button (or the walk timed out looking for one — `findNode`
+        // reports both as nil). Either way, close the window; do NOT fail closed
+        // on a timed-out walk. The session-timeout alert has no action button,
+        // so proving its absence needs a full-tree DFS through the web area, and
+        // it only appears while GP is wedged — exactly when that DFS blows its
+        // budget. Failing closed there left the alert up forever, the one case
+        // this function exists to handle. Closing the main app window instead is
+        // still gated downstream: `shouldDismissPopup` presses only on
+        // disconnect/timeout body text, which the main window never has.
+        return ax.closeButton(window)
     }
 
     /// Returns the window title, falling back to the first top-level
