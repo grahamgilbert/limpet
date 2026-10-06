@@ -47,7 +47,8 @@ public final class RecordingVpnController: VpnControlling, @unchecked Sendable {
             _failNext = nil
             return e
         }
-        if delay != .zero { try? await Task.sleep(for: delay) }
+        // Cancellable, like the real controller's polling.
+        if delay != .zero { try await Task.sleep(for: delay) }
         if let toThrow { throw toThrow }
     }
 

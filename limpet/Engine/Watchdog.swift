@@ -66,6 +66,8 @@ public actor Watchdog {
     /// working session.
     private var actionInFlight = false
     private var connectTask: Task<Void, Error>?
+    /// While true the watchdog observes but never touches GP.
+    private var paused = false
     // Prevents a notification storm when GP stays in a persistently bad signature state.
     private var signatureNotificationFired = false
 
@@ -92,6 +94,7 @@ public actor Watchdog {
     public func handle(_ state: ConnectionState) async {
         lastState = state
         stateSink.update(state)
+        guard !paused else { return }
 
         if desired.desiredOn {
             await reconcileDesiredOn(state)
@@ -144,10 +147,12 @@ public actor Watchdog {
         lastDisconnectAt = nil
     }
 
-    /// Aborts a connect the watchdog is driving. Callers must also clear
-    /// `desiredOn`, or the next tick simply starts another attempt.
-    public func cancelReconnect() {
-        connectTask?.cancel()
+    /// Pausing aborts any connect the watchdog is driving and stops it acting
+    /// until resumed. `desiredOn` is left alone: the user asked limpet to back
+    /// off, not for GP to change state.
+    public func setPaused(_ paused: Bool) {
+        self.paused = paused
+        if paused { connectTask?.cancel() }
     }
 
     public func consume(_ stream: AsyncStream<ConnectionState>) async {

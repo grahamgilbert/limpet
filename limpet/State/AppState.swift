@@ -11,6 +11,8 @@ public final class AppState: StateSink {
     public var lastError: String?
     /// Set while the watchdog is mid-connect; drives the menu bar spinner.
     public var isReconnecting = false
+    /// User hit cancel: limpet leaves GP alone until the toggle is used again.
+    public var isPaused = false
     /// Blink phase for the menu bar dot while `activity` is non-nil.
     var blinkDim = false
     // swiftlint:disable discouraged_optional_boolean
@@ -20,7 +22,12 @@ public final class AppState: StateSink {
     // swiftlint:enable discouraged_optional_boolean
 
     var toggleState: VPNToggleState {
-        VPNToggleState(pendingDesiredOn: pendingDesiredOn, connection: connection, isReconnecting: isReconnecting)
+        VPNToggleState(
+            pendingDesiredOn: pendingDesiredOn,
+            connection: connection,
+            isReconnecting: isReconnecting,
+            isPaused: isPaused
+        )
     }
 
     var activity: VPNToggleState.Activity? { toggleState.activity }

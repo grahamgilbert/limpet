@@ -15,6 +15,8 @@ struct VPNToggleState: Equatable {
     let connection: ConnectionState
     /// True while the watchdog is driving a connect (GP may still say disconnected).
     var isReconnecting = false
+    /// Limpet is backed off; nothing is in progress from its side.
+    var isPaused = false
 
     /// Whether the connection counts as "on" for the toggle's real state.
     var connectionIsOn: Bool {
@@ -47,6 +49,7 @@ struct VPNToggleState: Equatable {
     /// What is happening right now, if anything; takes precedence over the
     /// settled `connection` state in every status display.
     var activity: Activity? {
+        if isPaused { return nil }
         if pendingDesiredOn == false { return .disconnecting }
         if pendingDesiredOn == true || connection == .connecting || isReconnecting { return .connecting }
         return nil
@@ -58,7 +61,7 @@ struct MenuBarContent: View {
     @Bindable var preferences: Preferences
     @Bindable var trust: AccessibilityTrustWatcher
     let controller: VpnControlling
-    let cancelReconnect: @Sendable () async -> Void
+    let setWatchdogPaused: @Sendable (Bool) async -> Void
     let openPreferences: () -> Void
 
     // While a connect/disconnect action is in flight we display the user's
@@ -112,6 +115,13 @@ struct MenuBarContent: View {
                 }
             }
 
+            if appState.isPaused {
+                Text("Paused: limpet won't touch GlobalProtect until you use the toggle.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if let err = appState.lastError {
                 Text(err)
                     .font(.caption)
@@ -145,11 +155,7 @@ struct MenuBarContent: View {
                 displayedOn: displayedToggle,
                 isPending: toggleState.isPending,
                 onChangeRequested: setDesired,
-                onCancel: {
-                    // desiredOn first, or the watchdog restarts the attempt.
-                    setDesired(false)
-                    Task { await cancelReconnect() }
-                }
+                onCancel: pauseAutomation
             )
             .onChange(of: connectionIsOn) { _, newValue in
                 if let pending = pendingDesiredOn, pending == newValue {
@@ -246,7 +252,19 @@ extension MenuBarContent {
         }
     }
 
+    /// Stop driving GP altogether: abort the manual attempt, pause the watchdog.
+    fileprivate func pauseAutomation() {
+        appState.isPaused = true
+        pendingTask?.cancel()
+        pendingDesiredOn = nil
+        Task { await setWatchdogPaused(true) }
+    }
+
     fileprivate func setDesired(_ newValue: Bool) {
+        if appState.isPaused {
+            appState.isPaused = false
+            Task { await setWatchdogPaused(false) }
+        }
         preferences.desiredOn = newValue
         triggerToggle(to: newValue)
     }

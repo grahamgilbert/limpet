@@ -90,7 +90,7 @@ struct limpetApp: App {
                 preferences: preferences,
                 trust: trust,
                 controller: controller,
-                cancelReconnect: { [watchdog] in await watchdog.cancelReconnect() },
+                setWatchdogPaused: { [watchdog] in await watchdog.setPaused($0) },
                 openPreferences: showPreferencesWindow
             )
         } label: {

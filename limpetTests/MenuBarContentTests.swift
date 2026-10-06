@@ -81,4 +81,11 @@ struct VPNToggleActivityTests {
         #expect(VPNToggleState(pendingDesiredOn: nil, connection: .connected).activity == nil)
         #expect(VPNToggleState(pendingDesiredOn: nil, connection: .disconnected).activity == nil)
     }
+
+    @Test("paused hides all activity, even while GP is still connecting")
+    func pausedHasNoActivity() {
+        let paused = VPNToggleState(pendingDesiredOn: nil, connection: .connecting, isPaused: true)
+        #expect(paused.activity == nil)
+        #expect(!paused.isPending)
+    }
 }

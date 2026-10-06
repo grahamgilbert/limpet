@@ -117,12 +117,7 @@ public actor AccessibilityVpnController: VpnControlling {
         defer { Self.restoreFocus(to: previousPID) }
 
         let appElement = try await openPopoverIfNeeded(deadline: deadline)
-        do {
-            try pressButton(matching: ["Disconnect", "Disable"], in: appElement, deadline: deadline)
-        } catch VpnControlError.buttonNotFound {
-            // Mid-connect GP shows Cancel instead of Disconnect.
-            try pressButton(matching: ["Cancel"], in: appElement, deadline: deadline)
-        }
+        try pressButton(matching: ["Disconnect", "Disable"], in: appElement, deadline: deadline)
         Self.log.notice("disconnect: button pressed")
         try? await Task.sleep(for: .milliseconds(700))
         fillDisconnectCommentAndConfirm(in: appElement, deadline: deadline)
