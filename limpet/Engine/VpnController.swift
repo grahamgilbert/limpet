@@ -78,7 +78,7 @@ public actor AccessibilityVpnController: VpnControlling {
             // value change. Re-poll for the panel the same way we do after opening.
             var settled = false
             for _ in 0..<20 {
-                try? await Task.sleep(for: .milliseconds(100))
+                try await Task.sleep(for: .milliseconds(100))
                 try deadline.check()
                 if !panelWindows(appElement).isEmpty { settled = true; break }
             }
@@ -117,7 +117,12 @@ public actor AccessibilityVpnController: VpnControlling {
         defer { Self.restoreFocus(to: previousPID) }
 
         let appElement = try await openPopoverIfNeeded(deadline: deadline)
-        try pressButton(matching: ["Disconnect", "Disable"], in: appElement, deadline: deadline)
+        do {
+            try pressButton(matching: ["Disconnect", "Disable"], in: appElement, deadline: deadline)
+        } catch VpnControlError.buttonNotFound {
+            // Mid-connect GP shows Cancel instead of Disconnect.
+            try pressButton(matching: ["Cancel"], in: appElement, deadline: deadline)
+        }
         Self.log.notice("disconnect: button pressed")
         try? await Task.sleep(for: .milliseconds(700))
         fillDisconnectCommentAndConfirm(in: appElement, deadline: deadline)
@@ -198,7 +203,7 @@ public actor AccessibilityVpnController: VpnControlling {
         Self.log.info("popover closed; opening via status item")
         try clickStatusItem(appElement: appElement)
         for attempt in 0..<20 {
-            try? await Task.sleep(for: .milliseconds(100))
+            try await Task.sleep(for: .milliseconds(100))
             try deadline.check()
             let windows = panelWindows(appElement)
             Self.log.debug("popoverIsOpen: \(windows.count) GP panel windows")
@@ -276,7 +281,8 @@ public actor AccessibilityVpnController: VpnControlling {
             try deadline.check()
             guard let menu = AX.find(window, deadline: deadline, where: { AX.role($0) == kAXPopUpButtonRole as String }) else { continue }
             guard AX.press(menu) else { continue }
-            try? await Task.sleep(for: .milliseconds(200))
+            try await Task.sleep(for: .milliseconds(200))
+            try deadline.check()
             if let menuItem = AX.findNode(menu, children: AX.children, shouldStop: { deadline.isExpired }, where: {
                 AX.role($0) == kAXMenuItemRole as String &&
                 (AX.title($0) ?? "").localizedCaseInsensitiveContains(item)
@@ -347,6 +353,7 @@ private extension AX.Deadline {
     /// Throws once the budget is spent, so a caller mid-sequence stops issuing
     /// further AX messages to an app that isn't answering.
     func check() throws {
+        try Task.checkCancellation()
         if isExpired { throw VpnControlError.timedOut }
     }
 }

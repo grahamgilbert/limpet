@@ -6,16 +6,18 @@ import AppKit
 
 struct StatusIcon: View {
     let state: ConnectionState
+    var activity: VPNToggleState.Activity?
 
     var body: some View {
         Image(systemName: state.menuBarSystemImage)
             .symbolRenderingMode(.hierarchical)
             .foregroundStyle(tint)
-            .symbolEffect(.pulse, isActive: state == .connecting)
+            .symbolEffect(.pulse, isActive: activity != nil)
     }
 
     private var tint: Color {
-        switch state {
+        if activity != nil { return ConnectionState.connecting.menuBarBadgeColor }
+        return switch state {
         case .connected: .green
         case .connecting: .yellow
         case .disconnected: .red
@@ -33,13 +35,18 @@ struct StatusIcon: View {
 /// survives the templating step.
 struct MenuBarLabel: View {
     let state: ConnectionState
+    var activity: VPNToggleState.Activity?
+
+    /// Blink phase, driven externally: a `TimelineView` inside a MenuBarExtra
+    /// label makes SwiftUI rebuild the status button in a tight loop (95% CPU).
+    var dim = false
 
     var body: some View {
-        Image(nsImage: renderMenuBarImage(state: state))
+        Image(nsImage: renderMenuBarImage(state: state, activity: activity, dim: activity != nil && dim))
     }
 }
 
-private func renderMenuBarImage(state: ConnectionState) -> NSImage {
+private func renderMenuBarImage(state: ConnectionState, activity: VPNToggleState.Activity?, dim: Bool) -> NSImage {
     // Render the SF Symbol at its natural size to avoid the menubar squashing
     // a non-square canvas. We draw both the symbol and the dot inside that
     // square; the dot lives in the top-right of the symbol bounds.
@@ -64,7 +71,7 @@ private func renderMenuBarImage(state: ConnectionState) -> NSImage {
                         fraction: 1.0)
         }
 
-        if state.showsMenuBarBadge {
+        if activity != nil || state.showsMenuBarBadge {
             let dotSize: CGFloat = 6
             let dotRect = NSRect(
                 x: symbolSize.width - dotSize,
@@ -72,7 +79,8 @@ private func renderMenuBarImage(state: ConnectionState) -> NSImage {
                 width: dotSize,
                 height: dotSize
             )
-            state.menuBarBadgeNSColor.setFill()
+            let color = activity != nil ? ConnectionState.connecting.menuBarBadgeNSColor : state.menuBarBadgeNSColor
+            color.withAlphaComponent(dim ? 0.2 : 1).setFill()
             NSBezierPath(ovalIn: dotRect).fill()
         }
         return true

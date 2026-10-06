@@ -61,3 +61,24 @@ struct VPNToggleStateTests {
         #expect(!VPNToggleState(pendingDesiredOn: nil, connection: .unknown).isPending)
     }
 }
+
+@Suite("VPNToggleState — activity")
+struct VPNToggleActivityTests {
+    @Test("pending off reads as disconnecting even while still connected")
+    func disconnecting() {
+        #expect(VPNToggleState(pendingDesiredOn: false, connection: .connected).activity == .disconnecting)
+    }
+
+    @Test("pending on, GP retry and watchdog connect all read as connecting")
+    func connecting() {
+        #expect(VPNToggleState(pendingDesiredOn: true, connection: .disconnected).activity == .connecting)
+        #expect(VPNToggleState(pendingDesiredOn: nil, connection: .connecting).activity == .connecting)
+        #expect(VPNToggleState(pendingDesiredOn: nil, connection: .disconnected, isReconnecting: true).activity == .connecting)
+    }
+
+    @Test("settled states have no activity")
+    func settled() {
+        #expect(VPNToggleState(pendingDesiredOn: nil, connection: .connected).activity == nil)
+        #expect(VPNToggleState(pendingDesiredOn: nil, connection: .disconnected).activity == nil)
+    }
+}

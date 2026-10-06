@@ -16,6 +16,7 @@ struct limpetApp: App {
     private let monitor: VpnStatusMonitor
     private let popupLoop: PopupDismisserLoop
     private let watchdogTask: Task<Void, Never>
+    private let watchdog: Watchdog
 
     @MainActor
     init() {
@@ -61,6 +62,8 @@ struct limpetApp: App {
             Task { await dog.handleWake() }
         }
 
+        appState.trackBlink()
+
         let dismisser = PopupDismisserImpl(provider: GlobalProtectWindowProvider())
         let loop = PopupDismisserLoop(
             dismisser: dismisser,
@@ -75,6 +78,7 @@ struct limpetApp: App {
         self._trust = State(initialValue: AccessibilityTrustWatcher())
         self._updater = State(initialValue: updater)
         self.controller = controller
+        self.watchdog = dog
         self.monitor = monitor
         self.popupLoop = loop
     }
@@ -86,10 +90,11 @@ struct limpetApp: App {
                 preferences: preferences,
                 trust: trust,
                 controller: controller,
+                cancelReconnect: { [watchdog] in await watchdog.cancelReconnect() },
                 openPreferences: showPreferencesWindow
             )
         } label: {
-            MenuBarLabel(state: appState.connection)
+            MenuBarLabel(state: appState.connection, activity: appState.activity, dim: appState.blinkDim)
         }
         .menuBarExtraStyle(.window)
 

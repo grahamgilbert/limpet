@@ -10,6 +10,14 @@ public protocol DesiredStateProviding: AnyObject, Sendable {
 
 public protocol StateSink: AnyObject, Sendable {
     func update(_ state: ConnectionState)
+    /// True while the watchdog itself is driving a connect, so the UI can show
+    /// progress even though GP reports `.disconnected` (it only reports
+    /// `.connecting` once it enters its own retry loop).
+    func setReconnecting(_ reconnecting: Bool)
+}
+
+public extension StateSink {
+    func setReconnecting(_ reconnecting: Bool) {}
 }
 
 /// Reconciles desired VPN state vs. actual state observed from the status
@@ -57,6 +65,7 @@ public actor Watchdog {
     /// press Connect and then fall through to "Refresh Connection", dropping a
     /// working session.
     private var actionInFlight = false
+    private var connectTask: Task<Void, Error>?
     // Prevents a notification storm when GP stays in a persistently bad signature state.
     private var signatureNotificationFired = false
 
@@ -135,6 +144,12 @@ public actor Watchdog {
         lastDisconnectAt = nil
     }
 
+    /// Aborts a connect the watchdog is driving. Callers must also clear
+    /// `desiredOn`, or the next tick simply starts another attempt.
+    public func cancelReconnect() {
+        connectTask?.cancel()
+    }
+
     public func consume(_ stream: AsyncStream<ConnectionState>) async {
         for await state in stream {
             await handle(state)
@@ -210,12 +225,20 @@ public actor Watchdog {
         consecutiveConnects += 1
         lastConnectingSeenAt = nil
         actionInFlight = true
+        stateSink.setReconnecting(true)
         defer {
             actionInFlight = false
+            stateSink.setReconnecting(false)
             lastConnectAt = time.now()
         }
         do {
-            try await controller.connect(allowRefreshFallback: allowRefreshFallback)
+            let controller = controller
+            let task = Task { try await controller.connect(allowRefreshFallback: allowRefreshFallback) }
+            connectTask = task
+            defer { connectTask = nil }
+            try await task.value
+        } catch is CancellationError {
+            Self.log.notice("connect cancelled")
         } catch {
             // String(describing:) not localizedDescription: VpnControlError is
             // CustomStringConvertible, and localizedDescription ignores that and
