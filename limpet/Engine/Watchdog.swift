@@ -10,6 +10,14 @@ public protocol DesiredStateProviding: AnyObject, Sendable {
 
 public protocol StateSink: AnyObject, Sendable {
     func update(_ state: ConnectionState)
+    /// True while the watchdog itself is driving a connect, so the UI can show
+    /// progress even though GP reports `.disconnected` (it only reports
+    /// `.connecting` once it enters its own retry loop).
+    func setReconnecting(_ reconnecting: Bool)
+}
+
+public extension StateSink {
+    func setReconnecting(_ reconnecting: Bool) {}
 }
 
 /// Reconciles desired VPN state vs. actual state observed from the status
@@ -57,6 +65,9 @@ public actor Watchdog {
     /// press Connect and then fall through to "Refresh Connection", dropping a
     /// working session.
     private var actionInFlight = false
+    private var connectTask: Task<Void, Error>?
+    /// While true the watchdog observes but never touches GP.
+    private var paused = false
     // Prevents a notification storm when GP stays in a persistently bad signature state.
     private var signatureNotificationFired = false
 
@@ -83,6 +94,7 @@ public actor Watchdog {
     public func handle(_ state: ConnectionState) async {
         lastState = state
         stateSink.update(state)
+        guard !paused else { return }
 
         if desired.desiredOn {
             await reconcileDesiredOn(state)
@@ -133,6 +145,14 @@ public actor Watchdog {
         resetBackoff()
         consecutiveDisconnects = 0
         lastDisconnectAt = nil
+    }
+
+    /// Pausing aborts any connect the watchdog is driving and stops it acting
+    /// until resumed. `desiredOn` is left alone: the user asked limpet to back
+    /// off, not for GP to change state.
+    public func setPaused(_ paused: Bool) {
+        self.paused = paused
+        if paused { connectTask?.cancel() }
     }
 
     public func consume(_ stream: AsyncStream<ConnectionState>) async {
@@ -210,12 +230,20 @@ public actor Watchdog {
         consecutiveConnects += 1
         lastConnectingSeenAt = nil
         actionInFlight = true
+        stateSink.setReconnecting(true)
         defer {
             actionInFlight = false
+            stateSink.setReconnecting(false)
             lastConnectAt = time.now()
         }
         do {
-            try await controller.connect(allowRefreshFallback: allowRefreshFallback)
+            let controller = controller
+            let task = Task { try await controller.connect(allowRefreshFallback: allowRefreshFallback) }
+            connectTask = task
+            defer { connectTask = nil }
+            try await task.value
+        } catch is CancellationError {
+            Self.log.notice("connect cancelled")
         } catch {
             // String(describing:) not localizedDescription: VpnControlError is
             // CustomStringConvertible, and localizedDescription ignores that and

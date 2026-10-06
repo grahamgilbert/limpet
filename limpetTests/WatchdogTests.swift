@@ -406,6 +406,46 @@ struct WatchdogTests {
     }
 }
 
+@Suite("Watchdog pause")
+struct WatchdogPauseTests {
+    @Test("a paused watchdog observes state but never acts")
+    func pausedDoesNotAct() async {
+        let (dog, controller, _, sink, _) = makeDog(desiredOn: true)
+        await dog.setPaused(true)
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 0)
+        #expect(sink.states.last == .disconnected, "state is still reported to the UI")
+    }
+
+    @Test("resuming lets the watchdog act again")
+    func resumeActs() async {
+        let (dog, controller, _, _, _) = makeDog(desiredOn: true)
+        await dog.setPaused(true)
+        await dog.handle(.disconnected)
+        await dog.setPaused(false)
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 1)
+    }
+
+    @Test("pausing aborts an in-flight connect")
+    func pauseCancelsInFlight() async {
+        let controller = RecordingVpnController(delay: .seconds(5))
+        let dog = Watchdog(
+            controller: controller,
+            stateSink: RecordingStateSink(),
+            desired: StaticDesiredState(true),
+            time: FakeTimeSource(),
+            notifier: RecordingLoginItemNotifier()
+        )
+        let start = ContinuousClock.now
+        async let attempt: Void = dog.handle(.disconnected)
+        try? await Task.sleep(for: .milliseconds(100))
+        await dog.setPaused(true)
+        await attempt
+        #expect(ContinuousClock.now - start < .seconds(2))
+    }
+}
+
 private func makeDog(
     desiredOn: Bool,
     connectingGrace: Duration = .seconds(15),

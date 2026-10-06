@@ -13,6 +13,10 @@ struct VPNToggleState: Equatable {
     let pendingDesiredOn: Bool?
     // swiftlint:enable discouraged_optional_boolean
     let connection: ConnectionState
+    /// True while the watchdog is driving a connect (GP may still say disconnected).
+    var isReconnecting = false
+    /// Limpet is backed off; nothing is in progress from its side.
+    var isPaused = false
 
     /// Whether the connection counts as "on" for the toggle's real state.
     var connectionIsOn: Bool {
@@ -29,7 +33,27 @@ struct VPNToggleState: Equatable {
     /// Whether to show the inline spinner: either a manual action is in flight,
     /// or GP is actively connecting (e.g. a watchdog-driven reconnect, which has
     /// no pending manual intent but should still show progress).
-    var isPending: Bool { pendingDesiredOn != nil || connection == .connecting }
+    var isPending: Bool { activity != nil }
+
+    enum Activity {
+        case connecting, disconnecting
+
+        var label: String {
+            switch self {
+            case .connecting: ConnectionState.connecting.menuLabel
+            case .disconnecting: "Disconnecting…"
+            }
+        }
+    }
+
+    /// What is happening right now, if anything; takes precedence over the
+    /// settled `connection` state in every status display.
+    var activity: Activity? {
+        if isPaused { return nil }
+        if pendingDesiredOn == false { return .disconnecting }
+        if pendingDesiredOn == true || connection == .connecting || isReconnecting { return .connecting }
+        return nil
+    }
 }
 
 struct MenuBarContent: View {
@@ -37,6 +61,7 @@ struct MenuBarContent: View {
     @Bindable var preferences: Preferences
     @Bindable var trust: AccessibilityTrustWatcher
     let controller: VpnControlling
+    let setWatchdogPaused: @Sendable (Bool) async -> Void
     let openPreferences: () -> Void
 
     // While a connect/disconnect action is in flight we display the user's
@@ -44,12 +69,16 @@ struct MenuBarContent: View {
     // over the real state until either reality matches the intent or the
     // timeout fires. nil = no action in flight; the three-state distinction
     // is deliberate, so silence SwiftLint here.
+    // Lives on AppState so the menu bar icon can show it too.
     // swiftlint:disable:next discouraged_optional_boolean
-    @State private var pendingDesiredOn: Bool?
+    private var pendingDesiredOn: Bool? {
+        get { appState.pendingDesiredOn }
+        nonmutating set { appState.pendingDesiredOn = newValue }
+    }
     @State private var pendingTask: Task<Void, Never>?
 
     private var toggleState: VPNToggleState {
-        VPNToggleState(pendingDesiredOn: pendingDesiredOn, connection: appState.connection)
+        appState.toggleState
     }
 
     private var connectionIsOn: Bool { toggleState.connectionIsOn }
@@ -61,9 +90,9 @@ struct MenuBarContent: View {
             EmptyView()
                 .onAppear { preferences.refreshLoginItemState() }
             HStack(spacing: 8) {
-                StatusIcon(state: appState.connection)
+                StatusIcon(state: appState.connection, activity: toggleState.activity)
                     .font(.title3)
-                Text(appState.connection.menuLabel)
+                Text(toggleState.activity?.label ?? appState.connection.menuLabel)
                     .font(.headline)
                 Spacer()
             }
@@ -84,6 +113,13 @@ struct MenuBarContent: View {
                         .controlSize(.small)
                     }
                 }
+            }
+
+            if appState.isPaused {
+                Text("Paused: limpet won't touch GlobalProtect until you use the toggle.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             if let err = appState.lastError {
@@ -118,10 +154,8 @@ struct MenuBarContent: View {
             VPNToggleRow(
                 displayedOn: displayedToggle,
                 isPending: toggleState.isPending,
-                onChangeRequested: { newValue in
-                    preferences.desiredOn = newValue
-                    triggerToggle(to: newValue)
-                }
+                onChangeRequested: setDesired,
+                onCancel: pauseAutomation
             )
             .onChange(of: connectionIsOn) { _, newValue in
                 if let pending = pendingDesiredOn, pending == newValue {
@@ -183,6 +217,7 @@ private struct VPNToggleRow: View {
     let displayedOn: Bool
     let isPending: Bool
     let onChangeRequested: (Bool) -> Void
+    let onCancel: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
@@ -191,11 +226,20 @@ private struct VPNToggleRow: View {
                 set: { onChangeRequested($0) }
             ))
             .toggleStyle(.switch)
+            // Mid-operation the toggle would race the in-flight AX action; the
+            // cancel button is the way out.
+            .disabled(isPending)
 
             if isPending {
                 ProgressView()
                     .controlSize(.small)
                     .scaleEffect(0.7)
+                Button(action: onCancel) {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Cancel")
             }
         }
     }
@@ -206,6 +250,23 @@ extension MenuBarContent {
         if current == preferences.desiredOn {
             appState.lastError = nil
         }
+    }
+
+    /// Stop driving GP altogether: abort the manual attempt, pause the watchdog.
+    fileprivate func pauseAutomation() {
+        appState.isPaused = true
+        pendingTask?.cancel()
+        pendingDesiredOn = nil
+        Task { await setWatchdogPaused(true) }
+    }
+
+    fileprivate func setDesired(_ newValue: Bool) {
+        if appState.isPaused {
+            appState.isPaused = false
+            Task { await setWatchdogPaused(false) }
+        }
+        preferences.desiredOn = newValue
+        triggerToggle(to: newValue)
     }
 
     fileprivate func triggerToggle(to newValue: Bool) {
@@ -220,6 +281,9 @@ extension MenuBarContent {
                 } else {
                     try await controller.disconnect()
                 }
+            } catch is CancellationError {
+                // Superseded by a newer action, which owns the pending state now.
+                return
             } catch {
                 appState.lastError = "\(error)"
                 pendingDesiredOn = nil
