@@ -112,35 +112,40 @@ struct VpnStatusMonitorTests {
 
     @Test("atomic rotation (replacement inode already present) rebinds the file source")
     func atomicRotationRebindsSource() async throws {
-        let path = try makeTempLog(contents: """
-         m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is 1, IsVPNInRetry() is 0.
-
-        """)
+        let line = { (connected: Int, retry: Int) in
+            " m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is \(connected), IsVPNInRetry() is \(retry).\n"
+        }
+        let path = try makeTempLog(contents: line(1, 0))
         defer { try? FileManager.default.removeItem(atPath: path) }
 
         // Long safety poll so only a correctly-rebound DispatchSource — not the
-        // poll backstop — can surface post-rotation writes within the window.
+        // poll backstop — can surface events within the timeouts below.
         let monitor = VpnStatusMonitor(path: path, time: SystemTimeSource(), pollInterval: .seconds(30))
-        let collected = collectStates(from: monitor.stream, max: 3, timeout: .seconds(4))
+        let log = StateLog(monitor.stream)
 
-        try await Task.sleep(for: .milliseconds(200))
+        // Every step waits for the previous one to be observed. Fixed sleeps
+        // raced the monitor's startup: it emits the seed *before* binding its
+        // file source, so on a slow runner the rotation landed before the
+        // source existed and no later event ever arrived.
+        #expect(await log.waitFor(.connected))
+
+        // Readiness probe: the source is bound once it delivers a write.
+        // Re-append until it does, since the first write may predate the bind.
+        var bound = false
+        for _ in 0..<50 where !bound {
+            try append(to: path, line(0, 1))
+            bound = await log.waitFor(.connecting, timeout: .milliseconds(100))
+        }
+        #expect(bound, "file source never delivered a write")
+
         // Atomic rotation: one atomic write swaps in a brand-new inode, so a
         // before/after inode bracket around the read would see no change.
-        try """
-         m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is 0, IsVPNInRetry() is 1.
+        try line(1, 0).write(toFile: path, atomically: true, encoding: .utf8)
+        #expect(await log.waitFor(.connected, after: 2))
 
-        """.write(toFile: path, atomically: true, encoding: .utf8)
-        try await Task.sleep(for: .milliseconds(200))
         // Append to the NEW inode — only a rebound source wakes us before poll.
-        try append(to: path, """
-         m_bHibernate is 0, m_bAgentEnabled is 1, m_bDisconnect is 0, IsConnected() is 0, IsVPNInRetry() is 0.
-
-        """)
-
-        let states = await collected.value
-        #expect(states.first == .connected)
-        #expect(states.contains(.connecting))
-        #expect(states.contains(.disconnected))
+        try append(to: path, line(0, 0))
+        #expect(await log.waitFor(.disconnected, after: 3))
     }
 
     @Test("stays idle (no busy loop) when the log is quiescent after seeding")
@@ -330,5 +335,39 @@ private func collectStates(
         collectTask.cancel()
         timerTask.cancel()
         return result
+    }
+}
+
+/// Records everything a monitor stream emits so a test can wait for specific
+/// states instead of sleeping for a fixed time.
+private final class StateLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var states: [ConnectionState] = []
+    private var task: Task<Void, Never>?
+
+    init(_ stream: AsyncStream<ConnectionState>) {
+        task = Task { [weak self] in
+            for await state in stream { self?.record(state) }
+        }
+    }
+
+    deinit { task?.cancel() }
+
+    private func record(_ state: ConnectionState) {
+        lock.withLock { states.append(state) }
+    }
+
+    /// True once `state` appears at index >= `after`, within `timeout`.
+    func waitFor(
+        _ state: ConnectionState,
+        after index: Int = 0,
+        timeout: Duration = .seconds(5)
+    ) async -> Bool {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while ContinuousClock.now < deadline {
+            if lock.withLock({ states.dropFirst(index).contains(state) }) { return true }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return false
     }
 }

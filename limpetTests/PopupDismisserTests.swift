@@ -171,8 +171,12 @@ struct PopupDismisserLoopTests {
         loop?.start()
         try await Task.sleep(for: .milliseconds(50))
         loop = nil  // triggers deinit → task cancel
+        // Cancellation is asynchronous: a tick already in flight at deinit can
+        // still land. Let it settle before taking the baseline, or a loaded
+        // runner counts that tick as a post-cancel one.
+        try await Task.sleep(for: .milliseconds(150))
         let countAtDeinit = counter.count
-        try await Task.sleep(for: .milliseconds(40))
+        try await Task.sleep(for: .milliseconds(100))
         #expect(counter.count == countAtDeinit)
     }
 }
