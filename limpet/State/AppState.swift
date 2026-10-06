@@ -51,6 +51,8 @@ public final class AppState: StateSink {
             blinkTask = Task { @MainActor in
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .milliseconds(500))
+                    // A cancelled sleep returns early; don't undo syncBlink's reset.
+                    if Task.isCancelled { break }
                     blinkDim.toggle()
                 }
             }

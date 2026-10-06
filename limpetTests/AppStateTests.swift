@@ -37,4 +37,41 @@ struct AppStateTests {
         let value = await s.connection
         #expect(value == .connected)
     }
+
+    @Test
+    func setReconnectingFromBackgroundIsApplied() async {
+        let s = await AppState()
+        s.setReconnecting(true)
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(await s.isReconnecting)
+        s.setReconnecting(false)
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(await !s.isReconnecting)
+    }
+
+    @Test @MainActor
+    func activityFollowsPendingIntentAndReconnecting() {
+        let s = AppState(connection: .connected)
+        #expect(s.activity == nil)
+        s.pendingDesiredOn = false
+        #expect(s.activity == .disconnecting)
+        s.pendingDesiredOn = nil
+        s.isReconnecting = true
+        #expect(s.activity == .connecting)
+    }
+
+    @Test @MainActor
+    func blinkRunsOnlyWhileActive() async {
+        let s = AppState(connection: .connected)
+        s.trackBlink()
+        #expect(!s.blinkDim)
+
+        s.isReconnecting = true
+        try? await Task.sleep(for: .milliseconds(700))
+        #expect(s.blinkDim)
+
+        s.isReconnecting = false
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(!s.blinkDim)
+    }
 }
