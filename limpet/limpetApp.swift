@@ -37,7 +37,8 @@ struct limpetApp: App {
             controller: controller,
             stateSink: appState,
             desired: preferences.desiredStateProxy(),
-            notifier: notifier
+            notifier: notifier,
+            network: SystemNetworkCheck(portalAddress: { preferences.portalAddress })
         )
         let stream = monitor.stream
         let dog = watchdog

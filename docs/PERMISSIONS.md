@@ -34,5 +34,5 @@ limpet ships with the hardened runtime enabled. Combined with Developer ID code 
 
 - **Automation** — limpet uses the Accessibility API directly, not AppleScript.
 - **Full Disk Access** — limpet only reads `/Library/Logs/PaloAltoNetworks/GlobalProtect/PanGPS.log`, which is world-readable.
-- **Network** — limpet doesn't talk to the network. It reads a log file and clicks UI buttons.
+- **Network** — limpet makes two small requests before reconnecting: Apple's captive-portal probe (`http://captive.apple.com/hotspot-detect.html`, hence an ATS exception in Info.plist) and, if set, a GET to your GlobalProtect portal. Both only detect "can GP connect right now"; nothing is sent beyond the request itself. Sparkle also checks for updates.
 - **Screen Recording, Camera, Microphone, Contacts, Calendar** — none of these.

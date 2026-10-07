@@ -28,6 +28,17 @@
 	<true/>
 	<key>NSAccessibilityUsageDescription</key>
 	<string>limpet drives the GlobalProtect menu to keep your VPN connected and to dismiss disconnect popups.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>captive.apple.com</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © Graham Gilbert. All rights reserved.</string>
 	<key>NSPrincipalClass</key>

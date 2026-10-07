@@ -15,6 +15,7 @@
 		A1010006000000000000A001 /* PopupDismisser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010006000000000000B001 /* PopupDismisser.swift */; };
 		A1010007000000000000A001 /* VpnController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010007000000000000B001 /* VpnController.swift */; };
 		A1010008000000000000A001 /* Watchdog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010008000000000000B001 /* Watchdog.swift */; };
+		A1010030000000000000A001 /* NetworkCheck.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010030000000000000B001 /* NetworkCheck.swift */; };
 		A1010020000000000000A001 /* Updater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010020000000000000B001 /* Updater.swift */; };
 		A1010021000000000000A001 /* PreferencesWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010021000000000000B001 /* PreferencesWindow.swift */; };
 		A1010009000000000000A001 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1010009000000000000B001 /* AppState.swift */; };
@@ -75,6 +76,7 @@
 		A1010006000000000000B001 /* PopupDismisser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopupDismisser.swift; sourceTree = "<group>"; };
 		A1010007000000000000B001 /* VpnController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VpnController.swift; sourceTree = "<group>"; };
 		A1010008000000000000B001 /* Watchdog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Watchdog.swift; sourceTree = "<group>"; };
+		A1010030000000000000B001 /* NetworkCheck.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkCheck.swift; sourceTree = "<group>"; };
 		A1010020000000000000B001 /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
 		A1010021000000000000B001 /* PreferencesWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesWindow.swift; sourceTree = "<group>"; };
 		A1010009000000000000B001 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
@@ -204,6 +206,7 @@
 				A101001A000000000000B001 /* GlobalProtectWindowProvider.swift */,
 				A1010007000000000000B001 /* VpnController.swift */,
 				A1010008000000000000B001 /* Watchdog.swift */,
+				A1010030000000000000B001 /* NetworkCheck.swift */,
 				A1010020000000000000B001 /* Updater.swift */,
 			);
 			path = Engine;
@@ -413,6 +416,7 @@
 				A101001A000000000000A001 /* GlobalProtectWindowProvider.swift in Sources */,
 				A1010007000000000000A001 /* VpnController.swift in Sources */,
 				A1010008000000000000A001 /* Watchdog.swift in Sources */,
+				A1010030000000000000A001 /* NetworkCheck.swift in Sources */,
 				A1010020000000000000A001 /* Updater.swift in Sources */,
 				A1010021000000000000A001 /* PreferencesWindow.swift in Sources */,
 				A1010009000000000000A001 /* AppState.swift in Sources */,
