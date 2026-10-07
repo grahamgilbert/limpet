@@ -46,6 +46,7 @@ public actor Watchdog {
     private let desired: DesiredStateProviding
     private let time: TimeSource
     private let notifier: SecurityNotifying
+    private let network: NetworkChecking
 
     private let connectingGrace: Duration
     private let initialBackoff: Duration
@@ -77,6 +78,7 @@ public actor Watchdog {
         desired: DesiredStateProviding,
         time: TimeSource = SystemTimeSource(),
         notifier: SecurityNotifying = SystemLoginItemNotifier(),
+        network: NetworkChecking = AlwaysReadyNetworkCheck(),
         connectingGrace: Duration = .seconds(15),
         initialBackoff: Duration = .seconds(8),
         maxBackoff: Duration = .seconds(300)
@@ -86,6 +88,7 @@ public actor Watchdog {
         self.desired = desired
         self.time = time
         self.notifier = notifier
+        self.network = network
         self.connectingGrace = connectingGrace
         self.initialBackoff = initialBackoff
         self.maxBackoff = maxBackoff
@@ -218,7 +221,33 @@ public actor Watchdog {
         return now.timeIntervalSince(last) >= currentBackoff(consecutive: consecutiveDisconnects)
     }
 
+    /// Mirrors the branches of `reconcileDesiredOn` that call `issueConnect`.
+    private func connectStillApplies(allowRefreshFallback: Bool) -> Bool {
+        switch lastState {
+        case .connecting: return allowRefreshFallback
+        case .disconnected, .disabled: return !allowRefreshFallback
+        case .connected, .unknown: return false
+        }
+    }
+
     private func issueConnect(_ observedState: ConnectionState, allowRefreshFallback: Bool = false) async {
+        // Held across the probe: it suspends, and a second handle() must not
+        // start its own attempt in the gap. A skipped attempt records nothing —
+        // no backoff growth — so the next tick retries as soon as the network is
+        // usable (e.g. right after the user finishes the captive-portal login).
+        actionInFlight = true
+        defer { actionInFlight = false }
+        guard await network.isReady() else {
+            Self.log.notice("issueConnect skipped: network not ready")
+            return
+        }
+        // The probe suspends this actor, so the decision that got us here may be
+        // stale: GP may have connected, the user may have switched limpet off or
+        // paused it (connectTask, which setPaused cancels, does not exist yet).
+        guard !paused, desired.desiredOn, connectStillApplies(allowRefreshFallback: allowRefreshFallback) else {
+            Self.log.notice("issueConnect skipped: state changed during network probe")
+            return
+        }
         Self.log.notice("issueConnect: state=\(String(describing: observedState), privacy: .public) refreshFallback=\(allowRefreshFallback, privacy: .public)")
         // Stamped twice, deliberately. Before: a floor in case the attempt is
         // somehow not covered by `actionInFlight`. After: the settle window has
@@ -229,10 +258,8 @@ public actor Watchdog {
         lastConnectAt = time.now()
         consecutiveConnects += 1
         lastConnectingSeenAt = nil
-        actionInFlight = true
         stateSink.setReconnecting(true)
         defer {
-            actionInFlight = false
             stateSink.setReconnecting(false)
             lastConnectAt = time.now()
         }

@@ -450,7 +450,8 @@ private func makeDog(
     desiredOn: Bool,
     connectingGrace: Duration = .seconds(15),
     initialBackoff: Duration = .seconds(2),
-    notifier: RecordingLoginItemNotifier = RecordingLoginItemNotifier()
+    notifier: RecordingLoginItemNotifier = RecordingLoginItemNotifier(),
+    network: NetworkChecking = AlwaysReadyNetworkCheck()
 ) -> (Watchdog, RecordingVpnController, FakeTimeSource, RecordingStateSink, RecordingLoginItemNotifier) {
     let controller = RecordingVpnController()
     let sink = RecordingStateSink()
@@ -462,8 +463,65 @@ private func makeDog(
         desired: desired,
         time: time,
         notifier: notifier,
+        network: network,
         connectingGrace: connectingGrace,
         initialBackoff: initialBackoff
     )
     return (dog, controller, time, sink, notifier)
+}
+
+private final class StubNetwork: NetworkChecking, @unchecked Sendable {
+    let ready: Bool
+    /// Runs while the probe is "in flight", to simulate state changing under it.
+    var duringProbe: (@Sendable () async -> Void)?
+    init(ready: Bool) { self.ready = ready }
+    func isReady() async -> Bool {
+        await duringProbe?()
+        return ready
+    }
+}
+
+@Suite("Watchdog network gate")
+struct WatchdogNetworkTests {
+    private func make(ready: Bool) -> (Watchdog, RecordingVpnController) {
+        let (dog, controller, _, _, _) = makeDog(desiredOn: true, network: StubNetwork(ready: ready))
+        return (dog, controller)
+    }
+
+    @Test("network not ready → no connect attempt")
+    func notReadySkipsConnect() async {
+        let (dog, controller) = make(ready: false)
+        await dog.handle(.disconnected)
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 0)
+    }
+
+    @Test("network ready → connects")
+    func readyConnects() async {
+        let (dog, controller) = make(ready: true)
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 1)
+    }
+
+    @Test("GP connects while the probe is in flight → no connect")
+    func connectedDuringProbe() async {
+        let network = StubNetwork(ready: true)
+        let (dog, controller, _, _, _) = makeDog(desiredOn: true, network: network)
+        network.duringProbe = { await dog.handle(.connected) }
+        await dog.handle(.disconnected)
+        #expect(controller.connectCount == 0)
+    }
+
+    @Test("Apple probe body: exact success only")
+    func appleBody() {
+        #expect(SystemNetworkCheck.isAppleSuccess(Data("<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>".utf8)))
+        #expect(!SystemNetworkCheck.isAppleSuccess(Data("<html><title>Login</title></html>".utf8)))
+    }
+
+    @Test("portal URL: host, full URL, blank")
+    func portalURL() {
+        #expect(SystemNetworkCheck.portalURL(from: " vpn.example.com ")?.absoluteString == "https://vpn.example.com")
+        #expect(SystemNetworkCheck.portalURL(from: "https://vpn.example.com/x")?.absoluteString == "https://vpn.example.com/x")
+        #expect(SystemNetworkCheck.portalURL(from: "  ") == nil)
+    }
 }
